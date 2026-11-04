@@ -68,6 +68,8 @@ The protector never switches itself off and remembers exactly what each rescue d
 
 ## WebUI
 
+<img width="300" alt="bootloop-protector WebUI" src="https://raw.githubusercontent.com/nikakvo/bootloop-protector/refs/heads/main/bootloop-protector.jpg" />
+
 Open it from the module card in your root manager (in Magisk, with a WebUI app such as KsuWebUI).
 
 - **Status** - protection state, rescue details with Restore / Keep disabled, watchers, actions
