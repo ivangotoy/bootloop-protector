@@ -60,5 +60,8 @@ set_perm_recursive "$DATA" 0 0 0700 0600
 ui_print " "
 ui_print "- All data lives in $DATA"
 ui_print "- After the next boot the module learns your setup."
-ui_print "  It becomes trusted after 10 minutes without problems."
+tm=$(grep -m1 '^TRUST_MINUTES=' "$DATA/config" | cut -d= -f2 | tr -d '\r\t ')
+case "$tm" in ''|*[!0-9]*) tm=10 ;; esac
+{ [ "$tm" -lt 1 ] || [ "$tm" -gt 120 ]; } && tm=10
+ui_print "  It becomes trusted after $tm minutes without problems."
 ui_print " "

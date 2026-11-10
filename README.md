@@ -50,9 +50,11 @@ All limits can be changed in the WebUI.
    to the system). After 10 minutes without problems this becomes the **trusted setup**.
 2. **Level 1** switches off only what is new or changed since the trusted setup.
 3. If the problem comes back, **level 2** switches off every module and general script, except the
-   ones set to **Never disable**.
-4. If even that does not help, the problem is not caused by modules. The protector **gives up**
-   and stops rebooting, so it can never become the reason for a loop itself.
+   ones set to **Never disable** and the active metamodule (KernelSU / SukiSU). When level 1 finds
+   nothing it may switch off, level 2 runs right away, without an extra reboot.
+4. If even that does not help, or level 2 has nothing left to switch off, the problem is not caused
+   by modules. The protector **gives up** and stops rebooting, so it can never become the reason for
+   a loop itself - also for SystemUI and soft reboot loops that start after the boot.
 
 The protector never switches itself off and remembers exactly what each rescue disabled, so
 **Restore** brings back only those items - not the modules you turned off yourself.
@@ -64,7 +66,8 @@ The protector never switches itself off and remembers exactly what each rescue d
 - **Disable all** in the WebUI works like a level 2 rescue.
 - **Flash the module zip in TWRP** (or another custom recovery) when the phone cannot boot far
   enough to run the protector. It installs nothing there - it switches off all modules and
-  general scripts and records them, so Restore works after the boot.
+  general scripts (except Never disable and the metamodule) and records them, so Restore works
+  after the boot.
 
 ## WebUI
 

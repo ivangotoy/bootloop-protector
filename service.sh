@@ -28,12 +28,17 @@ failure() {
 # Volume Down x3 is left alone on purpose: KernelSU/SukiSU use it for safe mode.
 
 VK_FLAG="$BP_STATE/volkey"
-rm -f "$VK_FLAG"
+VK_FIFO="$BP_STATE/volkey.fifo"
+rm -f "$VK_FLAG" "$VK_FIFO"
 VK_PID=""
-if [ "$volkey" = 1 ] && command -v getevent >/dev/null 2>&1; then
+VK_GE=""
+if [ "$volkey" = 1 ] && command -v getevent >/dev/null 2>&1 && mkfifo "$VK_FIFO" 2>/dev/null; then
+  # getevent runs on its own (pid kept) so it can be stopped right after the boot
+  timeout "$timeout" getevent -lq > "$VK_FIFO" 2>/dev/null &
+  VK_GE=$!
   (
     n=0
-    timeout 150 getevent -lq 2>/dev/null | while IFS= read -r line; do
+    while IFS= read -r line; do
       case "$line" in
         *KEY_VOLUMEUP*DOWN*)
           n=$((n + 1))
@@ -43,7 +48,7 @@ if [ "$volkey" = 1 ] && command -v getevent >/dev/null 2>&1; then
           fi
           ;;
       esac
-    done
+    done < "$VK_FIFO"
   ) &
   VK_PID=$!
 fi
@@ -61,9 +66,15 @@ volkey_check() {
 }
 
 volkey_stop() {
+  if [ -n "$VK_GE" ]; then
+    # timeout may not pass the signal on, so stop getevent itself as well
+    for p in $(pgrep -P "$VK_GE" 2>/dev/null); do kill "$p" 2>/dev/null; done
+    kill "$VK_GE" 2>/dev/null
+  fi
   [ -n "$VK_PID" ] && kill "$VK_PID" 2>/dev/null
   VK_PID=""
-  rm -f "$VK_FLAG"
+  VK_GE=""
+  rm -f "$VK_FLAG" "$VK_FIFO"
 }
 
 zlast=""

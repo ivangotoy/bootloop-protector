@@ -41,6 +41,12 @@ disable_in() {
     [ -d "$m" ] || continue
     id="${m##*/}"
     case "$id" in "$ID"|lost+found) continue ;; esac
+    # Keep the metamodule: it mounts every module, and the root manager refuses
+    # new installs while it is disabled
+    if [ -n "$META" ] && [ "$id" = "$META" ]; then
+      ui_print "- Keeping $id (metamodule)"
+      continue
+    fi
     if clean_list "$DATA/allowed-modules.txt" | grep -Fxq "$id"; then
       ui_print "- Keeping $id (allowed)"
       continue
@@ -62,6 +68,10 @@ recovery_rescue() {
     exit 1
   fi
   mkdir -p "$DATA/state"
+  before=$(cat "$LIST" 2>/dev/null | wc -l)
+  META=$(readlink /data/adb/metamodule 2>/dev/null)
+  META=${META%/}
+  META=${META##*/}
 
   for d in /data/adb/post-fs-data.d /data/adb/post-mount.d /data/adb/service.d /data/adb/boot-completed.d; do
     [ -d "$d" ] || continue
@@ -95,7 +105,7 @@ recovery_rescue() {
   done
 
   printf 'time=%s\nlevel=2\nreason=recovery flash\ncount=%s\n' "$(date +%s)" \
-    "$(wc -l < "$LIST" 2>/dev/null || echo 0)" > "$DATA/state/last-rescue"
+    "$(( $(cat "$LIST" 2>/dev/null | wc -l) - before ))" > "$DATA/state/last-rescue"
   # This was a full (level 2) rescue: start counting fresh, so the next boot
   # does not run another rescue at once, and a failure after it gives up
   # instead of rebooting again

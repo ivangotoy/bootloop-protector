@@ -146,8 +146,8 @@
   <h3>Two levels</h3>
   <div class="flow">
     <div class="step"><b>1</b><div><strong>Level 1</strong> switches off only what is <strong>new or changed</strong> since the trusted setup - a module you just flashed or updated, or a new script. Almost every boot loop comes from exactly that.</div></div>
-    <div class="step"><b>2</b><div>If the problem comes back, <strong>level 2</strong> switches off every module and general script, except the ones set to <em>Never disable</em>.</div></div>
-    <div class="step"><b>✕</b><div>If even that does not help, the problem is not caused by modules. The protector <strong>gives up</strong> and stops rebooting, so it can never become the reason for a loop itself.</div></div>
+    <div class="step"><b>2</b><div>If the problem comes back, <strong>level 2</strong> switches off every module and general script, except the ones set to <em>Never disable</em> and the active metamodule. When level 1 finds nothing it may switch off, level 2 runs right away, without an extra reboot.</div></div>
+    <div class="step"><b>✕</b><div>If even that does not help, or level 2 has nothing left to switch off, the problem is not caused by modules. The protector <strong>gives up</strong> and stops rebooting, so it can never become the reason for a loop itself. This also covers SystemUI and soft reboot loops that start after the boot.</div></div>
   </div>
   <p class="note warn">Without a trusted setup yet (right after installing) or when nothing changed,
   a rescue goes straight to level 2.</p>
@@ -171,8 +171,10 @@
 <div class="sec-title" id="never">never disable</div>
 <div class="box">
   <p>The <strong>Never disable</strong> switch next to each module and script keeps it running in every
-  rescue, also on level 2. Use it for things the phone should always have, like a metamodule,
-  susfs or a VPN module.</p>
+  rescue, also on level 2. Use it for things the phone should always have, like susfs or a VPN module.</p>
+  <p>The active <strong>metamodule</strong> (KernelSU / SukiSU, for example meta-mm) is kept on level 2 and in a
+  recovery rescue without this switch: it mounts the files of every module, and the root manager does not
+  install any module while it is disabled. Level 1 still switches it off when it is new or was just updated.</p>
   <p class="note warn">If a module set to Never disable is the cause, the protector cannot fix the loop
   and gives up. Switch it on only for modules you trust.</p>
   <p>The lists are plain text files, one name per line:
@@ -194,7 +196,8 @@
   <h3>From recovery</h3>
   <p>If the phone cannot get far enough to run the protector at all, flash the
   <strong>module zip in TWRP</strong> (or another custom recovery). It does not install anything there -
-  it switches off all modules and general scripts and records them, so Restore works after the boot.
+  it switches off all modules and general scripts (except Never disable and the metamodule) and records
+  them, so Restore works after the boot.
   <code>/data</code> must be decrypted.</p>
 </div>
 

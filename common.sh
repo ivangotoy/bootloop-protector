@@ -181,6 +181,13 @@ disable_script() {
   bp_log "  disabled script $1"
 }
 
+# Id of the active KernelSU/SukiSU metamodule (empty when there is none)
+metamodule_id() {
+  _t=$(readlink "$ADB/metamodule" 2>/dev/null)
+  _t=${_t%/}
+  echo "${_t##*/}"
+}
+
 # rescue LEVEL REASON
 #   level 1 - only modules and scripts that are new or changed since the trusted setup
 #   level 2 - every module and script (except allowed ones and this module)
@@ -212,10 +219,25 @@ rescue() {
         script:*) disable_script "${key#script:}" && count=$((count + 1)) ;;
       esac
     done < "$BP_STATE/suspects"
-  else
+    # Every suspect was kept (Never disable) or is already off: a reboot would
+    # change nothing, so go on with level 2 right away
+    if [ "$count" = 0 ]; then
+      bp_log "Level 1 found nothing it may disable - going to level 2"
+      level=2
+      bp_log "RESCUE level 2 - reason: $reason"
+    fi
+  fi
+  if [ "$level" = 2 ]; then
+    meta=$(metamodule_id)
     for m in "$MODULES_DIR"/*/; do
       m="${m%/}"
       [ -d "$m" ] || continue
+      # The metamodule mounts every module and the root manager refuses new
+      # installs while it is disabled - keep it, like this module itself
+      if [ -n "$meta" ] && [ "${m##*/}" = "$meta" ]; then
+        bp_log "  keep module $meta (metamodule)"
+        continue
+      fi
       disable_module "${m##*/}" && count=$((count + 1))
     done
     list_scripts > "$BP_STATE/scripts.tmp"
@@ -284,6 +306,16 @@ escalate() {
   rescue "$next" "$1"
   state_set level "$RESCUE_LEVEL"
   state_set attempts 0
+  if [ "$RESCUE_LEVEL" = 2 ] && [ "$RESCUE_COUNT" = 0 ]; then
+    # Everything that may be disabled is off already: rebooting again cannot help.
+    # This also ends loops that start after a good boot (SystemUI, soft reboots),
+    # where the good boot resets the level each time.
+    touch "$BP_STATE/gaveup"
+    bp_log "Level 2 had nothing left to disable - the problem is not caused by modules or scripts."
+    bp_log "No more reboots until a good boot."
+    refresh_desc
+    return 1
+  fi
   refresh_desc
   return 0
 }

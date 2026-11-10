@@ -1,3 +1,18 @@
+## v1.3
+
+- Fixed an endless reboot loop: a SystemUI or soft reboot loop that starts after the boot and
+  is not caused by a module (or is caused by a module set to Never disable) now ends in
+  "Gave up" after one rescue, instead of a rescue and a reboot every few minutes
+- A level 1 rescue that finds nothing it may switch off goes on with level 2 right away,
+  without a reboot that could not change anything
+- Level 2 and the recovery rescue keep the active metamodule (KernelSU / SukiSU, for example
+  meta-mm). Before, it was switched off too, so modules lost their mounted files and the root
+  manager refused to install any module until it was enabled again by hand
+- Volume Up rescue now works for the whole boot timeout (it stopped after 150 seconds), and the
+  key watcher is fully stopped once the boot completes
+- Recovery rescue: the count on the module card shows only the items switched off by that flash
+- The installer shows your own "trusted after N minutes" setting
+
 ## v1.2
 
 - The WebUI opens fast again on a quick reopen: no more waiting about 8 seconds for the status
