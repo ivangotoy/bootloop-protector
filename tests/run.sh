@@ -84,8 +84,9 @@ cat > "$W/bin/setprop" <<'EOF'
 #!/bin/sh
 echo "setprop $*" >> "$STUB_R/calls"
 EOF
-# no process ever matches: nothing real can be signalled
-printf '#!/bin/sh\nexit 1\n' > "$W/bin/pidof"
+# no process ever matches unless a test adds $R/pidof, whose pids are above
+# any pid_max: nothing real can be signalled
+printf '#!/bin/sh\n[ -x "$STUB_R/pidof" ] && exec "$STUB_R/pidof" "$@"\nexit 1\n' > "$W/bin/pidof"
 printf '#!/bin/sh\nexit 1\n' > "$W/bin/pgrep"
 printf '#!/bin/sh\nexit 0\n' > "$W/bin/sleep"
 printf '#!/bin/sh\nexit 0\n' > "$W/bin/sync"
@@ -224,6 +225,25 @@ check "service: good boot logged" has "$DATA/bp.log" "Good boot"
 check "service: setup trusted after TRUST_MINUTES" has "$DATA/bp.log" "Setup trusted after 1 min without problems"
 check "service: trusted setup holds the module" has "$DATA/state/baseline" "module:example_mod "
 check "service: no reboot" not rebooted
+
+setup svc-sysui-after-rescue
+add_mod example_mod
+touch "$ADB/modules/example_mod/disable"
+echo module:example_mod > "$DATA/state/rescue.list"
+printf 'time=1600000000\nlevel=1\nreason=example\ncount=1\n' > "$DATA/state/last-rescue"
+conf SYSTEMUI_MONITOR 1
+conf TRUST_MINUTES 1
+echo 1 > "$R/boot_completed"
+# SystemUI goes down in the same poll that skips trusting the setup
+cat > "$R/pidof" <<'EOF'
+#!/bin/sh
+[ "$1" = com.android.systemui ] || exit 1
+grep -q "Not trusting this setup" "$STUB_R/data/adb/bootloop-protector/bp.log" && exit 1
+echo 99999999
+EOF
+chmod 755 "$R/pidof"
+STUB_TICK=10 STUB_SHUTDOWN_AFTER=60 run service.sh
+check "service: SystemUI down after the trust check gets its 30 s" has "$DATA/bp.log" "FAILURE: SystemUI not running for 30s"
 
 setup svc-timeout
 conf BOOT_TIMEOUT 60

@@ -355,8 +355,8 @@ refresh_desc() {
   if [ -f "$BP_STATE/last-rescue" ]; then
     lvl=$(grep '^level=' "$BP_STATE/last-rescue" | cut -d= -f2)
     cnt=$(grep '^count=' "$BP_STATE/last-rescue" | cut -d= -f2)
-    t=$(grep '^time=' "$BP_STATE/last-rescue" | cut -d= -f2)
-    when=$(date -d "@$t" '+%d.%m %H:%M' 2>/dev/null || echo "$t")
+    _rt=$(grep '^time=' "$BP_STATE/last-rescue" | cut -d= -f2)
+    when=$(date -d "@$_rt" '+%d.%m %H:%M' 2>/dev/null || echo "$_rt")
     set_desc "⚠️ Rescued $when: $cnt item(s) disabled (level $lvl). Tap Action to restore them."
     return
   fi
