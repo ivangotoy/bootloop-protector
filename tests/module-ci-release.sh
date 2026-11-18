@@ -207,6 +207,14 @@ check "upload failure: token in no curl or git argv" no_token_in_argv
 check "upload failure: header file removed" tmp_empty
 check "upload failure: main not moved" [ "$("$REAL_GIT" --git-dir "$S/origin.git" rev-parse main 2>/dev/null)" = "$BASE" ]
 
+# ---------- failure of the publish call ----------
+
+scenario fail-publish "" "" publish
+check "publish failure: exits non-zero" [ "$RC" != 0 ]
+check "publish failure: draft deleted" grep -qx "DELETE $A/releases/1 auth" "$S/calls"
+check "publish failure: merge already on main, no update.json commit" [ "$("$REAL_GIT" --git-dir "$S/origin.git" rev-parse main 2>/dev/null)" = "$SRC" ]
+check "publish failure: header file removed" tmp_empty
+
 # ---------- fork-owned module.prop kept at the released version ----------
 
 scenario sync "SYNC_ROOT_PROP=module.prop" "" ""
