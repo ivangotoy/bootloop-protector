@@ -161,6 +161,13 @@ check "level 2: rescue list records the script" hasx "$DATA/state/rescue.list" "
 check "level 2: attempts reset" [ "$(state attempts)" = 0 ]
 check "level 2: reboots" rebooted
 
+setup pfd-dash-name
+add_script -x.sh
+printf '%s\n' -x.sh >> "$DATA/allowed-scripts.txt"
+echo 3 > "$DATA/state/attempts"
+run post-fs-data.sh
+check "never-disable script named -x.sh kept by a rescue" executable -x.sh
+
 setup pfd-level1
 add_mod example_a
 add_mod example_b
@@ -249,6 +256,12 @@ run bp.sh allow-module '../example' 1
 check "allow-module: path in id refused" hasx "$R/out" "Bad module id"
 run bp.sh allow-script 'a/b.sh' 1
 check "allow-script: path refused" hasx "$R/out" "Bad script name"
+echo keep.sh >> "$DATA/allowed-scripts.txt"
+run bp.sh allow-script -x.sh 1
+check "allow-script: name starting with - added" hasx "$DATA/allowed-scripts.txt" "-x.sh"
+run bp.sh allow-script -x.sh 0
+check "allow-script: name starting with - removed" not hasx "$DATA/allowed-scripts.txt" "-x.sh"
+check "allow-script: other entries kept" hasx "$DATA/allowed-scripts.txt" "keep.sh"
 run bp.sh allow-module example_mod 1
 check "allow-module: added" hasx "$DATA/allowed-modules.txt" "example_mod"
 run bp.sh allow-module example_mod 0

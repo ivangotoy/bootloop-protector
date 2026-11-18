@@ -80,11 +80,11 @@ list_clean() {
 
 module_allowed() {
   [ "$1" = "$BP_ID" ] && return 0
-  list_clean "$BP_DATA/allowed-modules.txt" | grep -Fxq "$1"
+  list_clean "$BP_DATA/allowed-modules.txt" | grep -Fxq -e "$1"
 }
 
 script_allowed() {
-  list_clean "$BP_DATA/allowed-scripts.txt" | grep -Fxq "${1##*/}"
+  list_clean "$BP_DATA/allowed-scripts.txt" | grep -Fxq -e "${1##*/}"
 }
 
 # ---------- snapshots ----------

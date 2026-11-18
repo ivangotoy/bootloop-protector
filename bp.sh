@@ -17,9 +17,9 @@ valid_id() {
 list_set() {
   touch "$1"
   if [ "$3" = 1 ]; then
-    grep -Fxq "$2" "$1" || echo "$2" >> "$1"
+    grep -Fxq -e "$2" "$1" || echo "$2" >> "$1"
   else
-    grep -Fxv "$2" "$1" > "$1.tmp"
+    grep -Fxv -e "$2" "$1" > "$1.tmp"
     cat "$1.tmp" > "$1"
     rm -f "$1.tmp"
   fi

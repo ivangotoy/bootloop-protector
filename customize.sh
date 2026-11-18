@@ -36,7 +36,7 @@ if [ -d /data/adb/YABP ]; then
     [ -f "/data/adb/YABP/$f" ] || continue
     sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "/data/adb/YABP/$f" | grep -v '^$' |
       while IFS= read -r entry; do
-        if ! grep -Fxq "$entry" "$DATA/$f"; then
+        if ! grep -Fxq -e "$entry" "$DATA/$f"; then
           echo "$entry" >> "$DATA/$f"
           ui_print "- Kept old allowed entry: $entry"
         fi
