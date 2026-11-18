@@ -110,7 +110,15 @@ class Handler(BaseHTTPRequestHandler):
     do_GET = do_POST = do_PATCH = do_DELETE = do_HEAD = handle_any
 
 
-srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+class Server(ThreadingHTTPServer):
+    # curl -f hangs up on an error status before reading the body: not a server error
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
+
+
+srv = Server(("127.0.0.1", 0), Handler)
 with open(PORT_FILE + ".tmp", "w") as f:
     f.write(str(srv.server_port))
 os.rename(PORT_FILE + ".tmp", PORT_FILE)
