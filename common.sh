@@ -341,8 +341,9 @@ do_reboot() {
 set_desc() {
   prop="$BP_MOD/module.prop"
   [ -f "$prop" ] || return 0
-  grep -v '^description=' "$prop" > "$prop.tmp"
-  echo "description=$1" >> "$prop.tmp"
+  # module.prop is only overwritten when the temp copy was written
+  grep -v '^description=' "$prop" > "$prop.tmp" &&
+  echo "description=$1" >> "$prop.tmp" &&
   cat "$prop.tmp" > "$prop"
   rm -f "$prop.tmp"
 }

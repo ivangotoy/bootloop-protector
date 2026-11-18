@@ -212,6 +212,11 @@ check "both levels used: gives up" [ -f "$DATA/state/gaveup" ]
 check "both levels used: no reboot" not rebooted
 check "gave up: module card says so" has "$MOD/module.prop" "description=❌ Gave up"
 
+setup pfd-desc-tmp-fails
+mkdir "$MOD/module.prop.tmp"
+run post-fs-data.sh
+check "module card temp copy not writable: module.prop kept" hasx "$MOD/module.prop" "id=bootloop-protector"
+
 # ---------- service.sh ----------
 
 setup svc-good
