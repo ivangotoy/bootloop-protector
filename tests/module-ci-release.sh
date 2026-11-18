@@ -134,6 +134,8 @@ zip_prop() { python3 -I -c 'import sys,zipfile; print(zipfile.ZipFile(sys.argv[1
 origin_show() { "$REAL_GIT" --git-dir "$S/origin.git" show "main:$1" 2>/dev/null; }
 json_get() { python3 -I -c 'import json,sys; print(json.loads(sys.stdin.read())[sys.argv[1]])' "$1" 2>/dev/null; }
 same_file() { cmp -s "$1" "$2" || { diff "$1" "$2" | sed "s/^/     /"; return 1; }; }
+no_token_in_argv() { ! grep -rlF -e "$TOKEN" "$S/log" | grep -q .; }
+tmp_empty() { [ -z "$(ls -A "$S/tmp")" ]; }
 not_published() { ! grep -q '^PATCH ' "$S/calls"; }
 
 conf_offset() { local v; v=$(sed -n 's/^VERSION_CODE_OFFSET=//p' "$REPO/.forgejo/module-ci.conf" | head -n1); echo "${v:-0}"; }
@@ -167,12 +169,18 @@ check "release: published asset carries versionCode" bash -c '[ "$(sed -n "s/^ve
 check "release: published asset carries the forge updateJson" bash -c '[ "$(sed -n "s/^updateJson=//p" <<<"$1")" = "$2" ]' _ "$(zip_prop "$S/asset.zip")" "$SERVER_URL/$REPOSITORY/raw/branch/main/.forgejo/update.json"
 check "release: root module.prop untouched without SYNC_ROOT_PROP" bash -c '[ "$1" = "$2" ]' _ "$(origin_show module.prop)" "$(cat "$REPO/module.prop")"
 
+check "release: token in no curl or git argv" no_token_in_argv
+check "release: git clone and pushes get the token from the environment" bash -c 'grep -qx clone "$1" && [ "$(grep -cx push "$1")" = 2 ]' _ "$S/log/git-env-auth"
+check "release: header file removed after success" tmp_empty
+
 # ---------- failure after the draft exists ----------
 
 scenario fail-upload "" "" upload
 check "upload failure: exits non-zero" [ "$RC" != 0 ]
 check "upload failure: draft deleted" grep -qx "DELETE $A/releases/1 auth" "$S/calls"
 check "upload failure: nothing published" not_published
+check "upload failure: token in no curl or git argv" no_token_in_argv
+check "upload failure: header file removed" tmp_empty
 check "upload failure: main not moved" [ "$("$REAL_GIT" --git-dir "$S/origin.git" rev-parse main 2>/dev/null)" = "$BASE" ]
 
 # ---------- fork-owned module.prop kept at the released version ----------
