@@ -34,10 +34,12 @@ done
 if [ -d /data/adb/YABP ]; then
   for f in allowed-modules.txt allowed-scripts.txt; do
     [ -f "/data/adb/YABP/$f" ] || continue
+    # a hand-edited list may lack the final newline: appends start a line of their own
+    if [ -s "$DATA/$f" ] && [ -n "$(tail -c 1 "$DATA/$f")" ]; then echo >> "$DATA/$f"; fi
     sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "/data/adb/YABP/$f" | grep -v '^$' |
       while IFS= read -r entry; do
         if ! grep -Fxq -e "$entry" "$DATA/$f"; then
-          echo "$entry" >> "$DATA/$f"
+          printf '%s\n' "$entry" >> "$DATA/$f"
           ui_print "- Kept old allowed entry: $entry"
         fi
       done
