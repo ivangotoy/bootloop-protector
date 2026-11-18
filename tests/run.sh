@@ -303,6 +303,18 @@ run bp.sh allow-module example_mod 0
 check "allow-module: removed" not hasx "$DATA/allowed-modules.txt" "example_mod"
 check "allow-module: comments kept" has "$DATA/allowed-modules.txt" "# Allowed modules"
 
+setup cli-hand-edited
+printf 'example_crlf\r\n  example_sp  \nexample_cmt # a note\nexample_keep\n' >> "$DATA/allowed-modules.txt"
+run bp.sh allow-module example_crlf 1
+check "allow-module: entry with CR not added twice" [ "$(grep -c example_crlf "$DATA/allowed-modules.txt")" = 1 ]
+for id in example_crlf example_sp example_cmt; do
+  run bp.sh allow-module "$id" 0
+  check "allow-module: hand-edited $id removed" not has "$DATA/allowed-modules.txt" "$id"
+done
+check "allow-module: hand-edited list keeps other entries" hasx "$DATA/allowed-modules.txt" "example_keep"
+run bp.sh allow-script -n 1
+check "allow-script: name -n added" hasx "$DATA/allowed-scripts.txt" "-n"
+
 setup cli-enable-all
 add_mod example_a
 add_mod example_b

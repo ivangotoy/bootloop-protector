@@ -13,13 +13,17 @@ valid_id() {
   return 0
 }
 
-# list_set FILE ENTRY 0|1 - add or remove one exact line, comments stay
+# list_set FILE ENTRY 0|1 - add or remove one entry, comments stay.
+# Lines match the way list_clean reads them: CR, spaces and a trailing comment do not count.
 list_set() {
   touch "$1"
   if [ "$3" = 1 ]; then
-    grep -Fxq -e "$2" "$1" || echo "$2" >> "$1"
+    list_clean "$1" | grep -Fxq -e "$2" || printf '%s\n' "$2" >> "$1"
   else
-    grep -Fxv -e "$2" "$1" > "$1.tmp"
+    while IFS= read -r l || [ -n "$l" ]; do
+      c=$(printf '%s\n' "$l" | sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+      [ "$c" = "$2" ] || printf '%s\n' "$l"
+    done < "$1" > "$1.tmp"
     cat "$1.tmp" > "$1"
     rm -f "$1.tmp"
   fi
