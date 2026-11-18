@@ -24,6 +24,8 @@ list_set() {
       c=$(printf '%s\n' "$l" | sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
       [ "$c" = "$2" ] || printf '%s\n' "$l"
     done < "$1" > "$1.tmp"
+    # the list is only overwritten when the temp copy was written
+    [ -f "$1.tmp" ] || return 1
     cat "$1.tmp" > "$1"
     rm -f "$1.tmp"
   fi
@@ -157,14 +159,14 @@ case "$1" in
   allow-module)
     valid_id "$2" || { echo "Bad module id"; exit 1; }
     [ "$2" = "$BP_ID" ] && exit 0
-    list_set "$BP_DATA/allowed-modules.txt" "$2" "$3"
+    list_set "$BP_DATA/allowed-modules.txt" "$2" "$3" || { echo "Could not write allowed-modules.txt"; exit 1; }
     bp_log "Never disable $2: $([ "$3" = 1 ] && echo on || echo off)"
     echo "ok"
     ;;
 
   allow-script)
     case "$2" in ''|*/*) echo "Bad script name"; exit 1 ;; esac
-    list_set "$BP_DATA/allowed-scripts.txt" "$2" "$3"
+    list_set "$BP_DATA/allowed-scripts.txt" "$2" "$3" || { echo "Could not write allowed-scripts.txt"; exit 1; }
     bp_log "Never disable script $2: $([ "$3" = 1 ] && echo on || echo off)"
     echo "ok"
     ;;

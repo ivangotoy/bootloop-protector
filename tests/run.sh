@@ -328,6 +328,13 @@ run bp.sh conf
 check "set-conf: config without final newline gets the new setting" hasx "$R/out" "MAX_ATTEMPTS=5"
 check "set-conf: config without final newline keeps its last setting" hasx "$DATA/config" "VOLKEY_RESCUE=0"
 
+setup cli-list-tmp-fails
+echo example_keep >> "$DATA/allowed-modules.txt"
+mkdir "$DATA/allowed-modules.txt.tmp"
+run bp.sh allow-module example_other 0
+check "allow-module: temp copy not writable keeps the list" hasx "$DATA/allowed-modules.txt" "example_keep"
+check "allow-module: temp copy not writable is reported" not hasx "$R/out" "ok"
+
 setup cli-enable-all
 add_mod example_a
 add_mod example_b
