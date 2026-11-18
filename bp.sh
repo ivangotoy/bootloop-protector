@@ -211,15 +211,16 @@ case "$1" in
     ;;
 
   enable-all)
-    n=0
+    # en, not n: restore sets n to its own count
+    en=0
     for m in "$MODULES_DIR"/*/; do
       m="${m%/}"
-      if [ -f "$m/disable" ]; then rm -f "$m/disable"; n=$((n + 1)); fi
+      if [ -f "$m/disable" ]; then rm -f "$m/disable"; en=$((en + 1)); fi
     done
     restore >/dev/null
-    bp_log "Enabled all modules ($n)"
+    bp_log "Enabled all modules ($en)"
     refresh_desc
-    echo "Enabled $n module(s). Reboot to apply."
+    echo "Enabled $en module(s). Reboot to apply."
     ;;
 
   trust-now)

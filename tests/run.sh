@@ -298,6 +298,14 @@ run bp.sh allow-module example_mod 0
 check "allow-module: removed" not hasx "$DATA/allowed-modules.txt" "example_mod"
 check "allow-module: comments kept" has "$DATA/allowed-modules.txt" "# Allowed modules"
 
+setup cli-enable-all
+add_mod example_a
+add_mod example_b
+touch "$ADB/modules/example_a/disable" "$ADB/modules/example_b/disable"
+run bp.sh enable-all
+check "enable-all: reports the modules it enabled" hasx "$R/out" "Enabled 2 module(s). Reboot to apply."
+check "enable-all: modules enabled" not disabled example_a
+
 echo ""
 echo "passed $PASS, failed $FAIL, skipped $SKIP (module scripts run with: $SH)"
 [ "$FAIL" = 0 ]
