@@ -239,10 +239,10 @@ check "SYNC_ROOT_PROP: root module.prop version" bash -c '[ "$(sed -n "s/^versio
 check "SYNC_ROOT_PROP: root module.prop versionCode" bash -c '[ "$(sed -n "s/^versionCode=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$VC"
 check "SYNC_ROOT_PROP: root module.prop updateJson" bash -c '[ "$(sed -n "s/^updateJson=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$SERVER_URL/$REPOSITORY/raw/branch/main/.forgejo/update.json"
 
-scenario sync-bad-version "SYNC_ROOT_PROP=module.prop" "v1.3&x" ""
-check "SYNC_ROOT_PROP with a version sed cannot take: exits non-zero" [ "$RC" != 0 ]
-check "SYNC_ROOT_PROP with a version sed cannot take: stops before the draft" not grep -q "^POST $A/releases" "$S/calls"
-check "SYNC_ROOT_PROP with a version sed cannot take: says why" grep -q "has characters other than" "$S/out"
+scenario sync-odd-version "SYNC_ROOT_PROP=module.prop" "v1.3&x|y (z)" ""
+check "SYNC_ROOT_PROP with & | spaces in the version: exits 0" [ "$RC" = 0 ]
+check "SYNC_ROOT_PROP with & | spaces in the version: written as text" bash -c '[ "$(sed -n "s/^version=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "v1.3&x|y (z)-ci$RUN_NUMBER"
+check "SYNC_ROOT_PROP with & | spaces in the version: updateJson intact" bash -c '[ "$(sed -n "s/^updateJson=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$SERVER_URL/$REPOSITORY/raw/branch/main/.forgejo/update.json"
 
 # ---------- dispatched commit not on main ----------
 

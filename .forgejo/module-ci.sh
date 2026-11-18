@@ -40,6 +40,7 @@ log() { printf '==> %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 prop_get() { sed -n "s/^$1=//p" "$2" | head -n1 | tr -d '\r'; }
 sha() { sha256sum "$1" | cut -d' ' -f1; }
+sedq() { printf '%s' "$1" | sed 's/[\\|&]/\\&/g'; }  # text for the replacement of a s|...|...| command
 jget() { python3 -I -c 'import json,sys;d=json.load(sys.stdin)
 for k in sys.argv[1].split("."): d=d[int(k)] if k.isdigit() else d[k]
 print(d)' "$1"; }
@@ -156,12 +157,6 @@ case "$BUILT_VC" in ''|*[!0-9]*) die "built versionCode '$BUILT_VC' is not a num
 VERSION="$(printf '%s' "$BUILT_VERSION" | sed -E 's/-(fork|ci)[0-9]+$//')-ci$RUN_NUMBER"
 VC=$((BUILT_VC + VERSION_CODE_OFFSET))
 [ "$VC" -ge "$VERSION_CODE_FLOOR" ] || die "versionCode $VC is below the floor $VERSION_CODE_FLOOR"
-if [ -n "$SYNC_ROOT_PROP" ]; then
-    # VERSION and VC end up in a sed replacement (SYNC_ROOT_PROP, after publish): check them
-    # here, before anything is created on the forge
-    [[ "$VERSION" =~ ^[A-Za-z0-9._+-]+$ ]] || die "version '$VERSION' has characters other than A-Za-z0-9._+-"
-    [[ "$VC" =~ ^[0-9]+$ ]] || die "versionCode '$VC' is not a number"
-fi
 TAG="$(printf '%s' "$VERSION" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/-+/-/g; s/^-//; s/-$//')"
 case "$TAG" in v*) ;; *) TAG="v$TAG" ;; esac
 ZIP_NAME="$ZIP_PREFIX-$TAG.zip"
@@ -282,7 +277,7 @@ if declare -F release_files >/dev/null; then
     for f in $RELEASE_FILES; do git add -- "$f"; done
 fi
 if [ -n "$SYNC_ROOT_PROP" ]; then
-    sed -i -E "s|^version=.*|version=$VERSION|; s|^versionCode=.*|versionCode=$VC|; s|^updateJson=.*|updateJson=$UPDATE_URL|" "$SYNC_ROOT_PROP"
+    sed -i -E "s|^version=.*|version=$(sedq "$VERSION")|; s|^versionCode=.*|versionCode=$VC|; s|^updateJson=.*|updateJson=$(sedq "$UPDATE_URL")|" "$SYNC_ROOT_PROP"
     git add -- "$SYNC_ROOT_PROP"
 fi
 git commit -q -m "update.json: $VERSION (versionCode $VC)"
