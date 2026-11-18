@@ -453,6 +453,16 @@ else
   skip "module-ci release harness (needs bash, python3, git and curl)"
 fi
 
+# ---------- workflow ----------
+# every curl in the release workflow has connect and transfer timeouts
+wf_curl_bounded() {
+  _wf="$REPO/.forgejo/workflows/module-release.yml"
+  grep 'curl ' "$_wf" | grep -v '^ *#' | grep -v -e '--connect-timeout' | grep -q . && return 1
+  grep 'curl ' "$_wf" | grep -v '^ *#' | grep -v -e '--max-time' | grep -q . && return 1
+  return 0
+}
+check "workflow: every curl has --connect-timeout and --max-time" wf_curl_bounded
+
 echo ""
 echo "passed $PASS, failed $FAIL, skipped $SKIP (module scripts run with: $SH)"
 [ "$FAIL" = 0 ]
