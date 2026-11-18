@@ -1,1 +1,1 @@
-rm -f "/data/adb/service.d/.status.sh"
+rm -rf /data/adb/bootloop-protector

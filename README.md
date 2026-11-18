@@ -1,86 +1,151 @@
-# Yet Another Bootloop Protector.
-- This module try to protect your device from bootloops and system ui failures caused by Magisk/KernelSU/APatch Modules.
--  Generally , This Module can fix these type of bootloops if their cause is Magisk Modules.
-  1)  The device repeatedly restarts but may show the boot animation  before crashing and restarting again.
-  2)  The device gets stuck at the boot animation and never progresses to the lock screen.
-  3)  device boots successfully, but SystemUI fails to start, causing a black or unresponsive screen."
+<p align="center">
+  <img src="bootloop-protector.png" alt="Bootloop Protector" width="100%">
+</p>
 
-## Installation
+<h1 align="center">Bootloop Protector</h1>
 
-- Flash it in `Magisk`,`KSU` or `Apatch`
-- if you flash it in `custom recovery` , it will disable all the magisk/KSU/APatch modules for no reason. Flash it in `TWRP` only when necessary.
+<p align="center">
+  A root module that watches every boot and switches off the module that breaks it,
+  so you get a working phone back without a computer or a recovery.
+</p>
 
-
- ### Bootloop
-
-- If a bootloop is detected, , it will automatically disable every Magisk/KSU/APatch module and set the permissions of all general scripts (scripts placed in `/data/adb/service.d` , `/data/adb/post-fs-data.d` `/data/adb/post-mount.d` and `/data/adb/boot-completed.d`) to 644
-
-- You can manually enable each module, or you can use the action button. Using the action button will also set executable permissions `chmod +x` for all general scripts
-
-
-##  Recovery
-- Flashing this module in `TWRP` or `custom recoveries` will automatically disable all Magisk/KSU/APatch modules and general scripts. Your data partition should be accessible otherwise, it won't work.
-
-- It may not work with all recoveries.
-
-
-
-## How does it work?
-• Each time the device fails to complete the boot, the module creates a "marker"
-- No marker files: it creates the first marker (marker1).
-- One marker file: it creates a second marker (marker2).
-- Two marker files: it creates a third marker (marker3).
-- When three markers are present, the module considers the device to be in a boot loop , and  it disables all Magisk modules by creating a disable file in each module's folder. This action prevents those modules from loading during the next boot, which may help the device boot correctly.
-- The module waits for the boot to complete, checking every 5 seconds.
-If the boot does not complete within a set timeout period (2 minutes by default), the module assumes there is a boot problem, disables all Magisk modules and general scrips, and reboots the device.
-- The module also monitors the state of `zygote` during booting and disables all modules if unusual behavior is detected.
-
-  ### whitelist
-- you can add module-id to `/data/adb/YABP/allowed-modules.txt` ,and script names to allowed-scripts.txt, those scripts/modules wont be disabled even if a bootloop is detected
-
-## SystemUI Monitor (optional)
-
-- some modules, especially `customization modules`, may sometimes cause SystemUI to crash. Enabling this could help in tracking and resolving such issues.
-- You will be prompted to disable or enable system ui monitor while installing the module.
-- if enabled , then The Module checks the status of the SystemUI process every 5 seconds.
-- If SystemUI is not running, the module starts tracking it and if SystemUI remains inactive for more than 25  seconds , or if it crashes too often the module assumes a failure of the device and it `disables` all the magisk modules and general scripts and triggers a `reboot`
-
-- To  `disable` the systemUi Monitor , you can create a file named `systemui.monitor.disable` in `/data/adb` or you can just run
-```
-su -c touch /data/adb/systemui.monitor.disable
-```
-to `enable` the systemui monitor , you can just remove that file, or you can run , (changes will take place after the next boot)
-```
-su -c rm -f /data/adb/systemui.monitor.disable
-```
-
-- Logs of this module will be found at `/data/local/tmp/service.log`
-- you can run `rm -f /data/local/tmp/service.log` to clear the logs.
-
-
-### Limitations 
-
-- If the cause of the bootloop is not related to Magisk/KSU/APatch modules, this module won't help.
-- If any modules directly modify system files, this module won't help.
-- In cases where a module uses an incompatible `system.prop` or causes a bootloop during the early boot stages (post-fs-data), this module may not be able to disable it in time.
-
-> In these cases , you can always flash it in TWRP to disable Modules 
-
+<p align="center">
+  <img src="https://img.shields.io/badge/KernelSU-supported-2dd4bf">
+  <img src="https://img.shields.io/badge/SukiSU%20Ultra-supported-2dd4bf">
+  <img src="https://img.shields.io/badge/APatch-supported-2dd4bf">
+  <img src="https://img.shields.io/badge/Magisk-supported-2dd4bf">
+  <img src="https://img.shields.io/badge/license-MIT-7ecb35">
+</p>
 
 ---
 
-Support Me
+## What it does
 
-Hii! I'm [rhythmcache](https://github.com/rhythmcache), the developer of [YetAnotherBootloopProtector](https://github.com/Magisk-Modules-Alt-Repo/YetAnotherBootloopProtector).
+When a module or a general script stops the phone from starting, crashes the system again
+and again, or breaks SystemUI, Bootloop Protector switches off the cause and reboots.
+It works on its own - there is nothing to press.
 
-If you like this project, consider supporting me by sponsoring the project or buying me a coffee. It really helps me continue working on it!
+It does not switch off everything at once. It remembers your **trusted setup** and first
+switches off only what is **new or changed** - the module you just flashed or updated.
+Everything else keeps running.
 
-- ☕ [Buy me a coffee](https://www.buymeacoffee.com/triple_fault)
-- 💖 [Sponsor on GitHub](https://github.com/sponsors/rhythmcache)
+It needs no internet, no other module and no build tools. It is pure shell plus a WebUI.
 
+## What it detects
 
+| Problem | How it is caught |
+|---|---|
+| **Boot loop** | The phone restarts before the boot finishes. After 3 failed boots in a row the next boot starts a rescue. |
+| **Stuck boot** | The boot animation never ends. After 180 s the phone is rebooted and the boot counts as failed. |
+| **Zygote crash loop** | The boot animation starts over without a real reboot. 4 zygote restarts during boot start a rescue at once. |
+| **Soft reboot loop** | After the boot, zygote restarts 4 times within 5 minutes. A single soft reboot is normal and ignored. |
+| **SystemUI failure** | SystemUI restarts 3 times within 60 s, or stays down for 30 s. Can be switched off. |
 
-[![Telegram](https://img.shields.io/badge/Telegram-Channel-blue?logo=telegram)](https://t.me/tr1ple_fault)
+All limits can be changed in the WebUI.
 
+## Smart rescue
 
-[![Download](https://img.shields.io/github/downloads/Magisk-Modules-Alt-Repo/YetAnotherBootloopProtector/total?label=Total%20Downloads&color=blue)](https://github.com/Magisk-Modules-Alt-Repo/YetAnotherBootloopProtector/releases)
+1. After a good boot the protector records every enabled module and executable general script
+   with a fingerprint (version, boot scripts, `system.prop`, `sepolicy.rule` and the files it adds
+   to the system). After 10 minutes without problems this becomes the **trusted setup**.
+2. **Level 1** switches off only what is new or changed since the trusted setup.
+3. If the problem comes back, **level 2** switches off every module and general script, except the
+   ones set to **Never disable** and the active metamodule (KernelSU / SukiSU). When level 1 finds
+   nothing it may switch off, level 2 runs right away, without an extra reboot.
+4. If even that does not help, or level 2 has nothing left to switch off, the problem is not caused
+   by modules. The protector **gives up** and stops rebooting, so it can never become the reason for
+   a loop itself - also for SystemUI and soft reboot loops that start after the boot.
+
+The protector never switches itself off and remembers exactly what each rescue disabled, so
+**Restore** brings back only those items - not the modules you turned off yourself.
+
+## Rescue by hand
+
+- **Volume Up × 3** during the boot animation starts a rescue. Volume Down is left alone on
+  purpose: KernelSU and SukiSU use Volume Down × 3 for their own safe mode.
+- **Disable all** in the WebUI works like a level 2 rescue.
+- **Flash the module zip in TWRP** (or another custom recovery) when the phone cannot boot far
+  enough to run the protector. It installs nothing there - it switches off all modules and
+  general scripts (except Never disable and the metamodule) and records them, so Restore works
+  after the boot.
+
+## WebUI
+
+<img width="300" alt="bootloop-protector WebUI" src="https://raw.githubusercontent.com/nikakvo/bootloop-protector/refs/heads/main/bootloop-protector.jpg" />
+
+Open it from the module card in your root manager (in Magisk, with a WebUI app such as KsuWebUI).
+
+- **Status** - protection state, rescue details with Restore / Keep disabled, watchers, actions
+- **Modules** - every module and general script with its state (trusted, new, updated,
+  disabled by rescue, reboot pending) and a **Never disable** switch
+- **Settings** - failed boots, boot timeout, zygote limit, trust time, SystemUI monitor,
+  Volume Up rescue
+- **Log** - everything the protector did, newest first, with copy and save to `Download`
+  (the saved file starts with a short report for bug reports)
+
+The module card in the root manager also shows the state at a glance:
+`🛡️ Armed | Boot 🟢 | SystemUI 🟢 | Setup trusted 🟢`.
+
+## Install
+
+1. Uninstall any other bootloop protector first (two of them would fight each other).
+   Leftovers of Yet Another Bootloop Protector are cleaned up automatically.
+2. Flash the zip in KernelSU, SukiSU Ultra, APatch or Magisk and reboot.
+3. Use the phone normally for 10 minutes - the setup becomes trusted.
+
+## Files
+
+Everything lives in one folder, `/data/adb/bootloop-protector`, and survives module updates.
+Uninstalling the module removes it.
+
+| File | Content |
+|---|---|
+| `config` | settings |
+| `allowed-modules.txt` | modules set to Never disable |
+| `allowed-scripts.txt` | scripts set to Never disable |
+| `bp.log` | log, rotated at 512 KB |
+| `state/` | boot counter, trusted setup, rescue records |
+
+## Commands
+
+Everything the WebUI does also works from a root terminal:
+
+```sh
+# status
+su -c 'sh /data/adb/modules/bootloop-protector/bp.sh status'
+
+# modules with their state
+su -c 'sh /data/adb/modules/bootloop-protector/bp.sh modules'
+
+# bring back what the last rescue disabled
+su -c 'sh /data/adb/modules/bootloop-protector/bp.sh restore'
+
+# trust the current setup right away
+su -c 'sh /data/adb/modules/bootloop-protector/bp.sh trust-now'
+
+# read the log
+su -c 'cat /data/adb/bootloop-protector/bp.log'
+
+# save the log with a short report to Download
+su -c 'sh /data/adb/modules/bootloop-protector/bp.sh save-log'
+```
+
+Run `bp.sh` without arguments for the full list.
+
+## Limits
+
+- A module that breaks the phone before the root manager runs any script (a broken kernel or
+  boot image) cannot be caught - flash the zip in recovery.
+- A hard boot loop needs the failed boots to happen first, because the phone restarts before
+  anything can react. Lower *Failed boots before a rescue* for a faster reaction.
+- Changes made directly to the system partition, outside of modules, are not undone.
+
+## Credits
+
+The idea of counting failed boots comes from
+[Yet Another Bootloop Protector](https://github.com/Magisk-Modules-Alt-Repo/YetAnotherBootloopProtector)
+by rhythmcache. Bootloop Protector is a new implementation written from scratch.
+
+## License
+
+[MIT](LICENSE) © Tears Burn (nikakvo)

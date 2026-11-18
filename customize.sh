@@ -1,49 +1,67 @@
-#!/bin/sh
-timeout=10 #change value to change timeout
+#!/system/bin/sh
+# Bootloop Protector - installer
 
-ui_print "- Yet Another Bootloop Protector"
-ui_print ""
-ui_print "- Choose SystemUI Monitor Mode"
-ui_print "- Press VOLUME UP   => ENABLE"
-ui_print "- Press VOLUME DOWN => DISABLE"
-ui_print "- Waiting for your choice ( ${timeout}s timeout )..."
-ui_print ""
+DATA=/data/adb/bootloop-protector
+OLD=/data/adb/modules/YetAnotherBootloopProtector
 
-#ref "https://github.com/Magisk-Modules-Alt-Repo/YetAnotherBootloopProtector/issues/2#issue-3012688788"
+ui_print " "
+ui_print "  Bootloop Protector"
+ui_print "  boot loop and SystemUI crash protection"
+ui_print " "
 
-while true; do
-	event=$(timeout ${timeout} getevent -qlc 1 2>/dev/null)
-	exitcode=$?
-	if [ "$exitcode" -eq 124 ] || [ "$exitcode" -eq 143 ]; then
-		# Magisk BusyBox `timeout` returned 143 (SIGTERM), Android toybox ( /system/bin/timeout ) returned 124.
-		ui_print "- No key pressed. Defaulting to DISABLED."
-		touch /data/adb/systemui.monitor.disable
-		break
-	fi
-	if echo "$event" | grep -q "KEY_VOLUMEUP"; then
-		ui_print "- SystemUI Monitor enabled."
-		rm -f /data/adb/systemui.monitor.disable 2>/dev/null
-		break
-	elif echo "$event" | grep -q "KEY_VOLUMEDOWN"; then
-		ui_print "- SystemUI Monitor disabled."
-		touch /data/adb/systemui.monitor.disable
-		break
-	fi
+if [ -d "$OLD" ] && [ ! -f "$OLD/remove" ]; then
+  abort "! Yet Another Bootloop Protector is installed. Uninstall it first."
+fi
+
+mkdir -p "$DATA/state"
+for f in config allowed-modules.txt allowed-scripts.txt; do
+  if [ ! -f "$DATA/$f" ]; then
+    cp "$MODPATH/defaults/$f" "$DATA/$f"
+    ui_print "- Created $DATA/$f"
+  fi
 done
 
-ui_print ""
-source "$MODPATH/verify.sh"
-[ $? -eq 0 ] || abort "! Aborting: file integrity check failed."
-ui_print "- All files verified."
-ui_print ""
+# Settings added in newer versions go into an existing config, values stay as they are
+for key in $(grep -o '^[A-Z_]*=' "$MODPATH/defaults/config" | tr -d '='); do
+  if ! grep -q "^$key=" "$DATA/config"; then
+    echo "" >> "$DATA/config"
+    grep -B1 "^$key=" "$MODPATH/defaults/config" >> "$DATA/config"
+    ui_print "- New setting: $key"
+  fi
+done
 
-mkdir -p "/data/adb/service.d"
-mv "$MODPATH/.status.sh" "/data/adb/service.d"
-chmod +x "/data/adb/service.d/.status.sh"
-yabp=/data/adb/YABP
-mkdir -p "$yabp"
-cp -n "$MODPATH/allowed-modules.txt" "$yabp/"
-cp -n "$MODPATH/allowed-scripts.txt" "$yabp/"
+# Take over the allow lists of the old module, then remove everything it left behind
+if [ -d /data/adb/YABP ]; then
+  for f in allowed-modules.txt allowed-scripts.txt; do
+    [ -f "/data/adb/YABP/$f" ] || continue
+    sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "/data/adb/YABP/$f" | grep -v '^$' |
+      while IFS= read -r entry; do
+        if ! grep -Fxq "$entry" "$DATA/$f"; then
+          echo "$entry" >> "$DATA/$f"
+          ui_print "- Kept old allowed entry: $entry"
+        fi
+      done
+  done
+fi
+n=0
+for f in /data/adb/YABP /data/adb/service.d/.status.sh /data/adb/systemui.monitor.disable \
+         /data/adb/.tmp.lock /data/local/tmp/service.log; do
+  if [ -e "$f" ]; then
+    rm -rf "$f"
+    n=$((n + 1))
+  fi
+done
+[ "$n" -gt 0 ] && ui_print "- Removed $n leftover(s) of Yet Another Bootloop Protector"
+
 set_perm_recursive "$MODPATH" 0 0 0755 0644
-ui_print ""
-ui_print "- Installation complete!"
+for f in "$MODPATH"/*.sh; do set_perm "$f" 0 0 0755; done
+set_perm_recursive "$DATA" 0 0 0700 0600
+
+ui_print " "
+ui_print "- All data lives in $DATA"
+ui_print "- After the next boot the module learns your setup."
+tm=$(grep -m1 '^TRUST_MINUTES=' "$DATA/config" | cut -d= -f2 | tr -d '\r\t ')
+case "$tm" in ''|*[!0-9]*) tm=10 ;; esac
+{ [ "$tm" -lt 1 ] || [ "$tm" -gt 120 ]; } && tm=10
+ui_print "  It becomes trusted after $tm minutes without problems."
+ui_print " "

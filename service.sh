@@ -1,326 +1,214 @@
-#!/bin/sh
+#!/system/bin/sh
+# Bootloop Protector - late boot stage
+#   1. waits for the boot to complete, watching zygote for a crash loop
+#      and for Volume Up pressed 3 times during the boot animation
+#   2. a boot counts as good after 60 more stable seconds
+#   3. after TRUST_MINUTES without problems the current setup becomes trusted
+#   4. keeps watching for soft reboot loops and (when enabled) SystemUI crashes
 
-# YetAnotherBootLoopProtector by @rhythmcache
-MARKER_DIR="${0%/*}"
-LOGFILE="/data/local/tmp/service.log"
-MAGISK_MODULES_DIR="/data/adb/modules"
-BOOT_TIMEOUT=100
-PACKAGE="com.android.systemui" #default: SystemUI
-MONITOR_DISABLE_FILE="/data/adb/systemui.monitor.disable"
-lock_file="/data/adb/.tmp.lock"
-file=/data/adb/YABP/allowed-modules.txt
-file2=/data/adb/YABP/allowed-scripts.txt
+MODDIR=${0%/*}
+BP_STAGE=service
+. "$MODDIR/common.sh"
 
-# Log events
-log_event() {
-	echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >>"$LOGFILE"
+timeout=$(conf_num BOOT_TIMEOUT 180 60 900)
+zmax=$(conf_num ZYGOTE_MAX_RESTARTS 4 2 20)
+monitor=$(conf_num SYSTEMUI_MONITOR 1 0 1)
+trust_min=$(conf_num TRUST_MINUTES 10 1 120)
+volkey=$(conf_num VOLKEY_RESCUE 1 0 1)
+
+shutting_down() { [ -n "$(getprop sys.shutdown.requested)" ]; }
+
+failure() {
+  bp_log "FAILURE: $1"
+  escalate "$1" && do_reboot
+  exit 0
 }
 
-# Check if boot is completed
-is_boot_completed() {
-	BOOT_COMPLETED=$(getprop sys.boot_completed)
-	if [ "$BOOT_COMPLETED" = "1" ]; then
-		return 0
-	else
-		return 1
-	fi
-}
-# disable modules
+# ---------- Volume Up x3 = rescue by hand ----------
+# Volume Down x3 is left alone on purpose: KernelSU/SukiSU use it for safe mode.
 
-disable_magisk_modules() {
-  log_event "Disabling all Magisk modules..."
-  
-  # Read allowed modules  
-  allowed_modules=""  
-  if [ -f "$file" ]; then  
-    while IFS= read -r line; do  
-      if [ "${line#\#}" != "$line" ] || [ -z "$line" ]; then
-        continue
-      else
-        allowed_modules="$allowed_modules $line"
-      fi
-    done < "$file"  
-  fi  
-  
-  # Read allowed scripts
-  allowed_scripts=""  
-  if [ -f "$file2" ]; then  
-    while IFS= read -r line; do  
-      if [ "${line#\#}" != "$line" ] || [ -z "$line" ]; then
-        continue
-      else
-        allowed_scripts="$allowed_scripts $line"
-      fi
-    done < "$file2"  
-  fi  
-  
-  # Process modules using find
-  find "$MAGISK_MODULES_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r MODULE; do
-    MODULE_NAME=$(basename "$MODULE")
-    if [ -n "$(echo " $allowed_modules " | grep " $MODULE_NAME ")" ]; then
-      log_event "Skipping module: $MODULE_NAME"
-    else
-      touch "$MODULE/disable"  
-      log_event "Disabled module: $MODULE_NAME"
+VK_FLAG="$BP_STATE/volkey"
+VK_FIFO="$BP_STATE/volkey.fifo"
+rm -f "$VK_FLAG" "$VK_FIFO"
+VK_PID=""
+VK_GE=""
+if [ "$volkey" = 1 ] && command -v getevent >/dev/null 2>&1 && mkfifo "$VK_FIFO" 2>/dev/null; then
+  # getevent runs on its own (pid kept) so it can be stopped right after the boot
+  timeout "$timeout" getevent -lq > "$VK_FIFO" 2>/dev/null &
+  VK_GE=$!
+  (
+    n=0
+    while IFS= read -r line; do
+      case "$line" in
+        *KEY_VOLUMEUP*DOWN*)
+          n=$((n + 1))
+          if [ "$n" -ge 3 ]; then
+            touch "$VK_FLAG"
+            break
+          fi
+          ;;
+      esac
+    done < "$VK_FIFO"
+  ) &
+  VK_PID=$!
+fi
+
+volkey_check() {
+  [ -f "$VK_FLAG" ] || return 0
+  rm -f "$VK_FLAG"
+  bp_log "Volume Up pressed 3 times - rescue asked by hand"
+  rescue 1 "volume keys (by hand)"
+  state_set level "$RESCUE_LEVEL"
+  state_set attempts 0
+  refresh_desc
+  do_reboot
+  exit 0
+}
+
+volkey_stop() {
+  if [ -n "$VK_GE" ]; then
+    # timeout may not pass the signal on, so stop getevent itself as well
+    for p in $(pgrep -P "$VK_GE" 2>/dev/null); do kill "$p" 2>/dev/null; done
+    kill "$VK_GE" 2>/dev/null
+  fi
+  [ -n "$VK_PID" ] && kill "$VK_PID" 2>/dev/null
+  VK_PID=""
+  VK_GE=""
+  rm -f "$VK_FLAG" "$VK_FIFO"
+}
+
+zlast=""
+zchanges=0
+zygote_check() {
+  z=$(zygote_pid)
+  [ -n "$z" ] || return 0
+  if [ -n "$zlast" ] && [ "$z" != "$zlast" ]; then
+    zchanges=$((zchanges + 1))
+    bp_log "Zygote restarted ($zchanges): $zlast -> $z"
+    [ "$zchanges" -ge "$zmax" ] && failure "zygote crash loop ($zchanges restarts)"
+  fi
+  zlast=$z
+}
+
+# ---------- 1. wait for the boot ----------
+
+start=$(now)
+while [ "$(getprop sys.boot_completed)" != 1 ]; do
+  shutting_down && exit 0
+  volkey_check
+  zygote_check
+  if [ $(( $(now) - start )) -ge "$timeout" ]; then
+    bp_log "Boot did not complete in ${timeout}s"
+    if [ -f "$BP_STATE/gaveup" ]; then
+      bp_log "Gave up earlier - not rebooting"
+      exit 0
     fi
-  done
-  
-  # Process scripts using find
-  for DIR in /data/adb/service.d /data/adb/post-fs-data.d /data/adb/post-mount.d /data/adb/boot-completed.d; do
-    if [ -d "$DIR" ]; then
-      find "$DIR" -mindepth 1 -maxdepth 1 -type f | while read -r SCRIPT; do
-        SCRIPT_NAME=$(basename "$SCRIPT")
-        
-        # Skip status.sh file
-        if [ "$SCRIPT_NAME" = ".status.sh" ]; then
-          log_event "Skipping .status.sh"
-          continue
-        fi
-        
-        # Check if script is in allowed list
-        if [ -n "$(echo " $allowed_scripts " | grep " $SCRIPT_NAME ")" ]; then
-          log_event "Skipping script: $SCRIPT_NAME"
-        else
-          chmod 644 "$SCRIPT"
-          log_event "Changed permissions for script: $SCRIPT_NAME"
-        fi
-      done
-      
-      # Log if no scripts found in directory
-      if [ -z "$(find "$DIR" -mindepth 1 -maxdepth 1 -type f 2>/dev/null)" ]; then
-        log_event "No scripts found in $DIR"
-      fi
-    fi
-  done
-}
+    # The next post-fs-data counts this as a failed attempt
+    do_reboot
+    exit 0
+  fi
+  sleep 2
+done
+volkey_stop
+bp_log "Boot completed in $(( $(now) - start ))s"
 
-# Check for marker files
-check_marker_files() {
-	MARKER1="$MARKER_DIR/marker1"
-	MARKER2="$MARKER_DIR/marker2"
-	MARKER3="$MARKER_DIR/marker3"
+# A rescue in post-fs-data runs before the clock is set - give it the real time now
+if [ -f "$BP_STATE/last-rescue" ]; then
+  rt=$(grep '^time=' "$BP_STATE/last-rescue" | cut -d= -f2)
+  if [ "${rt:-0}" -lt 1000000000 ]; then
+    sed -i "s/^time=.*/time=$(now)/" "$BP_STATE/last-rescue"
+    refresh_desc
+  fi
+fi
 
-	if [ -f "$MARKER3" ]; then
-		log_event "Bootloop detected (3 markers found). Disabling Magisk modules and rebooting..."
-		disable_magisk_modules
-		rm -f "$MARKER1" "$MARKER2" "$MARKER3"
-		log_event "Deleted all marker files. Rebooting..."
-		reboot
-	elif [ -f "$MARKER2" ]; then
-		log_event "Second failed boot detected, creating marker3"
-		touch "$MARKER3"
-	elif [ -f "$MARKER1" ]; then
-		log_event "First failed boot detected, creating marker2"
-		touch "$MARKER2"
-	else
-		log_event "No markers found, creating marker1"
-		touch "$MARKER1"
-	fi
-}
+# ---------- 2. stability window ----------
 
-# Check if a package is running
-is_package_running() {
-	if pidof "$PACKAGE" >/dev/null; then
-		return 0 # Package is running
-	else
-		return 1 # Package is not running
-	fi
-}
-
-# monitor zygote
-zygote_monitor() {
-	dur=30 # Duration
-	int=4  # Interval
-	max=4  # Max PID changes
-	changes=0
-	last_pid=""
-	start=$(date +%s)
-
-	arch=$(getprop ro.product.cpu.abi)
-	if [ "$arch" = "arm64-v8a" ] || [ "$arch" = "x86_64" ]; then
-		check="zygote64"
-	else
-		check="zygote"
-	fi
-
-	log_event "Zygote monitor started."
-
-	while :; do
-		now=$(date +%s)
-		if [ $((now - start)) -ge "$dur" ]; then
-			break
-		fi
-
-		cur_pid=$(pidof "$check" 2>/dev/null || echo "")
-		if [ -n "$cur_pid" ]; then
-			overlap=0
-			for pid in $(echo "$last_pid" | tr ' ' '\n'); do
-				case " $cur_pid " in
-				*" $pid "*)
-					overlap=1
-					break
-					;;
-				esac
-			done
-			if [ "$overlap" -eq 0 ]; then
-				changes=$((changes + 1))
-				log_event "PID changed: $last_pid -> $cur_pid (Count: $changes)"
-			fi
-			last_pid="$cur_pid"
-		fi
-
-		if [ "$changes" -ge "$max" ]; then
-			log_event "PID changed $changes times. Disabling modules."
-			disable_magisk_modules
-			reboot
-			return
-		fi
-
-		sleep "$int"
-	done
-
-	log_event "Zygote is OK"
-}
-
-#SystemUI - PID
-
-systemui_monitor() {
-	local monitor_dur=30         # Monitor duration
-	local check_int=3            # time between PID checks
-	local max_chg=3              # Max PID changes
-	local pid_chg=0              # Counter for PID changes
-	local last_pid=""            #
-	local curr_pid               #
-	local start_time=$(date +%s) # Start time of monitoring
-	local curr_time
-
-	log_event "Checking systemui pid "
-	touch "$lock_file"
-
-	while true; do
-		curr_time=$(date +%s)
-		if [ $((curr_time - start_time)) -ge $monitor_dur ]; then
-			break
-		fi
-
-		curr_pid=$(pidof "$PACKAGE")
-		if [ -n "$curr_pid" ] && [ "$curr_pid" != "$last_pid" ]; then
-			pid_chg=$((pid_chg + 1))
-			log_event "SystemUI PID changed: $last_pid -> $curr_pid (Change count: $pid_chg)"
-			last_pid="$curr_pid"
-		fi
-
-		if [ $pid_chg -ge $max_chg ]; then
-			log_event "SystemUI pid changed $pid_chg times within 30s"
-			disable_magisk_modules
-			rm -f "$lock_file"
-			reboot
-			return
-		fi
-
-		sleep "$check_int"
-	done
-
-	log_event "pid check completed "
-	rm -f "$lock_file"
-}
-
-# Monitor SystemUI
-monitor_package() {
-	if [ -f "$MONITOR_DISABLE_FILE" ]; then
-		log_event "SystemUI monitoring is disabled. Exiting monitor."
-		return
-	fi
-
-	log_event "Starting continuous monitor for package: $PACKAGE"
-	local MONITOR_TIMEOUT=25 # Total timeout in seconds
-	local CHECK_INTERVAL=5   # Check interval in seconds
-	local FAILURE_TIME=0     # Time elapsed since package stopped running
-	local PREVIOUS_PID=""    # Previous PID of the package
-
-	while true; do
-		CURRENT_PID=$(pidof "$PACKAGE")
-
-		if [ -n "$CURRENT_PID" ]; then
-			if [ "$CURRENT_PID" != "$PREVIOUS_PID" ]; then
-				log_event "PID of $PACKAGE has changed from $PREVIOUS_PID to $CURRENT_PID."
-				PREVIOUS_PID="$CURRENT_PID"
-				if [ ! -f "$lock_file" ]; then
-					systemui_monitor &
-				fi
-			fi
-			FAILURE_TIME=0
-		else
-			log_event "$PACKAGE is not running. Failure timer: $FAILURE_TIME seconds."
-			FAILURE_TIME=$((FAILURE_TIME + CHECK_INTERVAL))
-			if [ ! -f "$lock_file" ]; then
-				systemui_monitor &
-			fi
-			if [ $FAILURE_TIME -ge $MONITOR_TIMEOUT ]; then
-				log_event "$PACKAGE has not been running for $MONITOR_TIMEOUT seconds. Disabling Magisk modules and rebooting..."
-				disable_magisk_modules
-				reboot
-			fi
-		fi
-		sleep $CHECK_INTERVAL
-	done
-}
-
-# post fs check
-signature() {
-	S1="$MARKER_DIR/s1"
-	S2="$MARKER_DIR/s2"
-	S3="$MARKER_DIR/s3"
-	DETECTED=0
-
-	# Check if any of the files exist
-	if [ -f "$S1" ]; then
-		DETECTED=1
-		log_event "Found s1"
-	fi
-	if [ -f "$S2" ]; then
-		DETECTED=1
-		log_event "Found s2"
-	fi
-	if [ -f "$S3" ]; then
-		DETECTED=1
-		log_event "Found s3"
-	fi
-
-	if [ "$DETECTED" -eq 1 ]; then
-		log_event "Post-fs signature detected..."
-		rm -f "$S1" "$S2" "$S3"
-	else
-		log_event "Warning: Post-fs signature not found.."
-	fi
-}
-
-# Main logic
-signature
-log_event "Service started. Waiting for boot completion..."
-check_marker_files
-sleep 3
-zygote_monitor
-rm -f "$lock_file"
-# Wait for boot to complete
-SECONDS_PASSED=0
-while [ $SECONDS_PASSED -lt $BOOT_TIMEOUT ]; do
-	if is_boot_completed; then
-		log_event "Boot completed successfully. Cleaning up marker files."
-		rm -f "$MARKER_DIR/marker1" "$MARKER_DIR/marker2" "$MARKER_DIR/marker3"
-		break
-	fi
-	sleep 5
-	SECONDS_PASSED=$((SECONDS_PASSED + 5))
+end=$(( $(now) + 60 ))
+while [ "$(now)" -lt "$end" ]; do
+  shutting_down && exit 0
+  zygote_check
+  sleep 3
 done
 
-#reboot
-if ! is_boot_completed; then
-	log_event "Boot did not complete within $BOOT_TIMEOUT seconds. Disabling Magisk modules and rebooting..."
-	disable_magisk_modules
-	rm -f "$MARKER_DIR/marker1" "$MARKER_DIR/marker2" "$MARKER_DIR/marker3"
-	log_event "Rebooting the device..."
-	reboot
-fi
-#monitoring
-monitor_package
+state_set attempts 0
+state_set level 0
+rm -f "$BP_STATE/gaveup"
+take_snapshot "$BP_STATE/candidate"
+bp_log "Good boot"
+refresh_desc
+
+# ---------- 3 + 4. trust the setup, watch soft reboots and SystemUI ----------
+
+good_at=$(now)
+trusted=0
+pid_last=$(pidof "$SYSTEMUI")
+down_since=0
+restarts=""
+softs=""
+
+while :; do
+  shutting_down && exit 0
+  t=$(now)
+
+  if [ "$trusted" = 0 ] && [ $((t - good_at)) -ge $((trust_min * 60)) ]; then
+    if [ -s "$BP_STATE/rescue.list" ]; then
+      # Modules are switched off by a rescue - this is not the real setup
+      rm -f "$BP_STATE/candidate"
+      bp_log "Not trusting this setup - a rescue is waiting for Restore"
+    else
+      mv -f "$BP_STATE/candidate" "$BP_STATE/baseline"
+      bp_log "Setup trusted after $trust_min min without problems"
+    fi
+    trusted=1
+    refresh_desc
+  fi
+
+  # Soft reboot = zygote restarts without a kernel reboot. One is normal
+  # (done by hand or by an app), several in a short time is a loop.
+  z=$(zygote_pid)
+  if [ -n "$z" ] && [ -n "$zlast" ] && [ "$z" != "$zlast" ]; then
+    keep=""
+    n=0
+    for s in $softs $t; do
+      if [ $((t - s)) -lt 300 ]; then keep="$keep $s"; n=$((n + 1)); fi
+    done
+    softs=$keep
+    bp_log "Soft reboot detected ($n in the last 5 min)"
+    [ "$n" -ge "$zmax" ] && failure "soft reboot loop ($n zygote restarts in 5 min)"
+    # SystemUI comes back on its own after a soft reboot - give it time
+    state_set sysui-ignore $((t + 90))
+  fi
+  [ -n "$z" ] && zlast=$z
+
+  if [ "$monitor" = 1 ]; then
+    pid=$(pidof "$SYSTEMUI")
+    if [ "$t" -lt "$(state_get sysui-ignore 0)" ]; then
+      # Soft reboot or a restart asked from the WebUI
+      pid_last=$pid
+      down_since=0
+      restarts=""
+    elif [ -n "$pid" ]; then
+      down_since=0
+      if [ -n "$pid_last" ] && [ "$pid" != "$pid_last" ]; then
+        keep=""
+        n=0
+        for r in $restarts $t; do
+          if [ $((t - r)) -lt 60 ]; then keep="$keep $r"; n=$((n + 1)); fi
+        done
+        restarts=$keep
+        bp_log "SystemUI restarted ($n in the last 60s): $pid_last -> $pid"
+        [ "$n" -ge 3 ] && failure "SystemUI crash loop ($n restarts in 60s)"
+      fi
+      pid_last=$pid
+    else
+      if [ "$down_since" = 0 ]; then
+        down_since=$t
+        bp_log "SystemUI is not running"
+      elif [ $((t - down_since)) -ge 30 ]; then
+        failure "SystemUI not running for $((t - down_since))s"
+      fi
+    fi
+  fi
+
+  if [ "$trusted" = 1 ]; then sleep 10; else sleep 5; fi
+done
