@@ -45,6 +45,10 @@ bp_log() {
 conf_num() {
   v=$(grep -m1 "^$1=" "$BP_CONF" 2>/dev/null | cut -d= -f2- | tr -d '\r\t ')
   case "$v" in ''|*[!0-9]*) echo "$2"; return ;; esac
+  # Leading zeros make shell arithmetic read the value as octal (08 is an error),
+  # and 10 or more digits are out of every range and too big for test
+  v=${v#"${v%%[!0]*}"}
+  case "$v" in '') v=0 ;; ??????????*) echo "$2"; return ;; esac
   if [ "$v" -lt "$3" ] || [ "$v" -gt "$4" ]; then echo "$2"; else echo "$v"; fi
 }
 

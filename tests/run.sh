@@ -214,6 +214,17 @@ STUB_TICK=10 STUB_SHUTDOWN_AFTER=100 run service.sh
 check "service: stuck boot is rebooted" rebooted
 check "service: stuck boot logged" has "$DATA/bp.log" "Boot did not complete in 60s"
 
+setup svc-conf-zero
+conf TRUST_MINUTES 08
+echo 1 > "$R/boot_completed"
+STUB_TICK=60 STUB_SHUTDOWN_AFTER=40 run service.sh
+check "config 08: read as 8, service keeps running to the trust point" has "$DATA/bp.log" "Setup trusted after 8 min without problems"
+
+setup svc-conf-long
+conf BOOT_TIMEOUT 99999999999999999999
+STUB_TICK=10 STUB_SHUTDOWN_AFTER=100 run service.sh
+check "config with 20 digits: default boot timeout applies" has "$DATA/bp.log" "Boot did not complete in 180s"
+
 # ---------- bp.sh ----------
 
 setup cli
@@ -226,6 +237,14 @@ check "set-conf: non-number refused" hasx "$R/out" "Bad value"
 run bp.sh set-conf PATH 1
 check "set-conf: unknown key refused" hasx "$R/out" "Unknown setting"
 check "set-conf: refused values change nothing" hasx "$DATA/config" "BOOT_TIMEOUT=240"
+run bp.sh set-conf BOOT_TIMEOUT 0300
+check "set-conf: leading zero refused" hasx "$R/out" "Bad value"
+run bp.sh set-conf BOOT_TIMEOUT 99999999999999999999
+check "set-conf: 20 digits refused" hasx "$R/out" "Out of range"
+check "set-conf: refused numerals change nothing" hasx "$DATA/config" "BOOT_TIMEOUT=240"
+conf TRUST_MINUTES 010
+run bp.sh conf
+check "conf: 010 is read as 10" hasx "$R/out" "TRUST_MINUTES=10"
 run bp.sh allow-module '../example' 1
 check "allow-module: path in id refused" hasx "$R/out" "Bad module id"
 run bp.sh allow-script 'a/b.sh' 1
