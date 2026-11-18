@@ -10,6 +10,10 @@ BP_STAGE=post-fs-data
 
 attempts=$(( $(state_get attempts 0) + 1 ))
 state_set attempts "$attempts"
+# Write the counter through to storage, so a hard reset right after cannot lose it:
+# only this one file, and only when sync says it takes FILE arguments (a sync that
+# ignored them would flush everything)
+case "$(sync --help 2>&1)" in *FILE*) sync "$BP_STATE/attempts" 2>/dev/null ;; esac
 max=$(conf_num MAX_ATTEMPTS 3 2 10)
 
 if [ "$attempts" -eq 1 ]; then

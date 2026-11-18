@@ -90,7 +90,15 @@ EOF
 printf '#!/bin/sh\n[ -x "$STUB_R/pidof" ] && exec "$STUB_R/pidof" "$@"\nexit 1\n' > "$W/bin/pidof"
 printf '#!/bin/sh\nexit 1\n' > "$W/bin/pgrep"
 printf '#!/bin/sh\nexit 0\n' > "$W/bin/sleep"
-printf '#!/bin/sh\nexit 0\n' > "$W/bin/sync"
+cat > "$W/bin/sync" <<'EOF'
+#!/bin/sh
+# help text from $STUB_R/sync.help when a test sets one; every sync is logged
+if [ "$1" = --help ]; then
+  if [ -f "$STUB_R/sync.help" ]; then cat "$STUB_R/sync.help"; else echo "Usage: sync [-df] [FILE]..."; fi
+  exit 0
+fi
+echo "sync $*" >> "$STUB_R/calls"
+EOF
 chmod 755 "$W/bin"/*
 
 # ---------- fake device ----------
@@ -140,6 +148,14 @@ run post-fs-data.sh
 check "post-fs-data: first boot counts attempt 1" [ "$(state attempts)" = 1 ]
 check "post-fs-data: module card shows booting" has "$MOD/module.prop" "description=⏳ Booting... (attempt 1 of 3 allowed)"
 check "post-fs-data: first boot does not reboot" not rebooted
+
+check "post-fs-data: boot counter synced, that file only" [ "$(grep '^sync' "$R/calls")" = "sync $DATA/state/attempts" ]
+
+setup pfd-sync-nofile
+echo "Usage: sync" > "$R/sync.help"
+run post-fs-data.sh
+check "post-fs-data: sync without FILE support is not called" not has "$R/calls" "sync"
+check "post-fs-data: boot still counted without a one-file sync" [ "$(state attempts)" = 1 ]
 
 setup pfd-level2
 add_mod example_mod
