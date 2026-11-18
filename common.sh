@@ -73,6 +73,16 @@ state_get() {
   echo "${v:-$2}"
 }
 
+# state_num KEY DEFAULT - a state value for arithmetic: decimal digits only, leading
+# zeros dropped (08 is 8, like conf_num); empty, other characters or 19+ digits give DEFAULT
+state_num() {
+  v=$(cat "$BP_STATE/$1" 2>/dev/null)
+  case "$v" in ''|*[!0-9]*) echo "$2"; return ;; esac
+  v=${v#"${v%%[!0]*}"}
+  case "$v" in '') v=0 ;; ???????????????????*) echo "$2"; return ;; esac
+  echo "$v"
+}
+
 state_set() {
   echo "$2" > "$BP_STATE/$1"
 }
@@ -309,7 +319,7 @@ restore() {
 # escalate REASON - run the next rescue level, or give up when both were used.
 # Returns 0 when a rescue ran (caller should reboot), 1 when it gave up.
 escalate() {
-  cur=$(state_get level 0)
+  cur=$(state_num level 0)
   next=$((cur + 1))
   if [ "$next" -gt 2 ]; then
     if [ ! -f "$BP_STATE/gaveup" ]; then

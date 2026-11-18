@@ -8,7 +8,7 @@ MODDIR=${0%/*}
 BP_STAGE=post-fs-data
 . "$MODDIR/common.sh"
 
-attempts=$(( $(state_get attempts 0) + 1 ))
+attempts=$(( $(state_num attempts 0) + 1 ))
 state_set attempts "$attempts"
 # Write the counter through to storage, so a hard reset right after cannot lose it:
 # only this one file, and only when sync says it takes FILE arguments (a sync that

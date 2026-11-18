@@ -157,6 +157,28 @@ run post-fs-data.sh
 check "post-fs-data: sync without FILE support is not called" not has "$R/calls" "sync"
 check "post-fs-data: boot still counted without a one-file sync" [ "$(state attempts)" = 1 ]
 
+for c in empty zeros nul 08 junk; do
+  setup "pfd-state-$c"
+  conf MAX_ATTEMPTS 10
+  case $c in
+    empty) : > "$DATA/state/attempts"; want=1 ;;
+    zeros) printf '00' > "$DATA/state/attempts"; want=1 ;;
+    nul) printf '\000\000' > "$DATA/state/attempts"; want=1 ;;
+    08) echo 08 > "$DATA/state/attempts"; want=9 ;;
+    junk) echo 3x > "$DATA/state/attempts"; want=1 ;;
+  esac
+  run post-fs-data.sh
+  check "post-fs-data: attempts file '$c' read as a number, boot counted" [ "$(state attempts)" = "$want" ]
+  check "post-fs-data: attempts file '$c' does not stop the boot stage" has "$MOD/module.prop" "Booting"
+done
+
+setup pfd-state-level-junk
+add_mod example_mod
+echo 1x > "$DATA/state/level"
+echo 3 > "$DATA/state/attempts"
+run post-fs-data.sh
+check "boot loop with a damaged level file: rescue still runs" disabled example_mod
+
 setup pfd-level2
 add_mod example_mod
 add_mod example_keep
@@ -266,6 +288,13 @@ EOF
 chmod 755 "$R/pidof"
 STUB_TICK=10 STUB_SHUTDOWN_AFTER=60 run service.sh
 check "service: SystemUI down after the trust check gets its 30 s" has "$DATA/bp.log" "FAILURE: SystemUI not running for 30s"
+
+setup svc-sysui-ignore-epoch
+conf SYSTEMUI_MONITOR 1
+echo 1 > "$R/boot_completed"
+echo 1800000000 > "$DATA/state/sysui-ignore"
+STUB_TICK=10 STUB_SHUTDOWN_AFTER=30 run service.sh
+check "service: a 10-digit sysui-ignore time keeps SystemUI ignored" not has "$DATA/bp.log" "FAILURE"
 
 setup svc-timeout
 conf BOOT_TIMEOUT 60

@@ -182,7 +182,7 @@ while :; do
 
   if [ "$monitor" = 1 ]; then
     pid=$(pidof "$SYSTEMUI")
-    if [ "$t" -lt "$(state_get sysui-ignore 0)" ]; then
+    if [ "$t" -lt "$(state_num sysui-ignore 0)" ]; then
       # Soft reboot or a restart asked from the WebUI
       pid_last=$pid
       down_since=0
