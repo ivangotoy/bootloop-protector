@@ -106,8 +106,8 @@ trap 'rm -rf "$AUTH_DIR"' EXIT
 AUTH_H="$AUTH_DIR/header"
 (umask 077; printf 'Authorization: token %s\n' "$RELEASE_TOKEN" > "$AUTH_H")
 auth() { printf 'Authorization: token %s' "$RELEASE_TOKEN"; }
-api() { local m="$1" p="$2"; shift 2; curl -sS --fail-with-body --retry 3 -X "$m" -H "@$AUTH_H" "$@" "$API$p"; }
-http_code() { curl -sS -o /dev/null -w '%{http_code}' -H "@$AUTH_H" "$API$1"; }
+api() { local m="$1" p="$2"; shift 2; curl -sS --connect-timeout 30 --max-time 600 --fail-with-body --retry 3 -X "$m" -H "@$AUTH_H" "$@" "$API$p"; }
+http_code() { curl -sS --connect-timeout 30 --max-time 600 -o /dev/null -w '%{http_code}' -H "@$AUTH_H" "$API$1"; }
 git_auth() {
     (n="${GIT_CONFIG_COUNT:-0}"
      export GIT_CONFIG_COUNT=$((n + 1)) "GIT_CONFIG_KEY_$n=http.extraHeader" "GIT_CONFIG_VALUE_$n=$(auth)"
@@ -234,7 +234,7 @@ log "draft release $RELEASE_ID, uploading $ZIP_NAME"
 ASSET_ID="$(api POST "/releases/$RELEASE_ID/assets?name=$ZIP_NAME" -F "attachment=@$ZIP" | jget id)"
 ASSET_URL="$(api GET "/releases/$RELEASE_ID/assets/$ASSET_ID" | jget browser_download_url)"
 log "downloading back $ASSET_URL"
-curl -sSL --fail-with-body -H "@$AUTH_H" -o "$REL/back.zip" "$ASSET_URL"
+curl -sSL --connect-timeout 30 --max-time 600 --fail-with-body -H "@$AUTH_H" -o "$REL/back.zip" "$ASSET_URL"
 [ "$(sha "$REL/back.zip")" = "$ZIP_SHA" ] || die "downloaded asset sha256 differs"
 unzip -tq "$REL/back.zip" >/dev/null || die "downloaded asset fails zip test"
 
@@ -248,7 +248,7 @@ api PATCH "/releases/$RELEASE_ID" -H 'Content-Type: application/json' -d "$REQ" 
 PUBLISHED=1
 TAG_SHA="$(api GET "/tags/$TAG" | jget commit.sha)"
 [ "$TAG_SHA" = "$SRC_SHA" ] || die "published tag $TAG points at $TAG_SHA, expected $SRC_SHA"
-for i in 1 2 3 4 5; do curl -fsSL -o "$REL/anon.zip" "$ZIP_URL" && break; sleep 5; done
+for i in 1 2 3 4 5; do curl -fsSL --connect-timeout 30 --max-time 600 -o "$REL/anon.zip" "$ZIP_URL" && break; sleep 5; done
 [ "$(sha "$REL/anon.zip")" = "$ZIP_SHA" ] || die "anonymous download of $ZIP_URL differs"
 log "published $TAG"
 
@@ -276,7 +276,7 @@ git commit -q -m "update.json: $VERSION (versionCode $VC)"
 git_auth push -q origin HEAD:refs/heads/main || die "push of update.json failed"
 got=""
 for i in 1 2 3 4 5; do
-    got="$(curl -fsS "$UPDATE_URL" | jget versionCode || true)"
+    got="$(curl -fsS --connect-timeout 30 --max-time 600 "$UPDATE_URL" | jget versionCode || true)"
     [ "$got" = "$VC" ] && break; sleep 5
 done
 [ "$got" = "$VC" ] || die "$UPDATE_URL answers versionCode '$got', expected $VC"

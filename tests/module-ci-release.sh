@@ -136,6 +136,15 @@ json_get() { python3 -I -c 'import json,sys; print(json.loads(sys.stdin.read())[
 same_file() { cmp -s "$1" "$2" || { diff "$1" "$2" | sed "s/^/     /"; return 1; }; }
 no_token_in_argv() { ! grep -rlF -e "$TOKEN" "$S/log" | grep -q .; }
 tmp_empty() { [ -z "$(ls -A "$S/tmp")" ]; }
+curl_timeouts() {
+  local f n=0
+  for f in "$S"/log/curl.*; do
+    [ "$(grep -x -A1 -e --connect-timeout "$f" | sed -n 2p)" = 30 ] || return 1
+    [ "$(grep -x -A1 -e --max-time "$f" | sed -n 2p)" = 600 ] || return 1
+    n=$((n + 1))
+  done
+  [ "$n" -ge 10 ]
+}
 not_published() { ! grep -q '^PATCH ' "$S/calls"; }
 
 conf_offset() { local v; v=$(sed -n 's/^VERSION_CODE_OFFSET=//p' "$REPO/.forgejo/module-ci.conf" | head -n1); echo "${v:-0}"; }
@@ -172,6 +181,7 @@ check "release: root module.prop untouched without SYNC_ROOT_PROP" bash -c '[ "$
 check "release: token in no curl or git argv" no_token_in_argv
 check "release: git clone and pushes get the token from the environment" bash -c 'grep -qx clone "$1" && [ "$(grep -cx push "$1")" = 2 ]' _ "$S/log/git-env-auth"
 check "release: header file removed after success" tmp_empty
+check "release: every curl call has --connect-timeout 30 --max-time 600" curl_timeouts
 
 # ---------- failure after the draft exists ----------
 
