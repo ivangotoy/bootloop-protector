@@ -145,6 +145,17 @@ curl_timeouts() {
   done
   [ "$n" -ge 10 ]
 }
+retry_reads_only() {
+  local f m gets=0
+  for f in "$S"/log/curl.*; do
+    m=$(grep -x -A1 -e -X "$f" | sed -n 2p)
+    case "$m" in
+      GET) grep -qx -e --retry "$f" || return 1; gets=$((gets + 1)) ;;
+      POST|PATCH|DELETE) ! grep -qx -e --retry "$f" || return 1 ;;
+    esac
+  done
+  [ "$gets" -ge "${1:-1}" ]
+}
 not_published() { ! grep -q '^PATCH ' "$S/calls"; }
 
 conf_offset() { local v; v=$(sed -n 's/^VERSION_CODE_OFFSET=//p' "$REPO/.forgejo/module-ci.conf" | head -n1); echo "${v:-0}"; }
@@ -182,11 +193,14 @@ check "release: token in no curl or git argv" no_token_in_argv
 check "release: git clone and pushes get the token from the environment" bash -c 'grep -qx clone "$1" && [ "$(grep -cx push "$1")" = 2 ]' _ "$S/log/git-env-auth"
 check "release: header file removed after success" tmp_empty
 check "release: every curl call has --connect-timeout 30 --max-time 600" curl_timeouts
+check "release: --retry on GET API calls only, never POST/PATCH/DELETE" retry_reads_only
 
 # ---------- failure after the draft exists ----------
 
 scenario fail-upload "" "" upload
 check "upload failure: exits non-zero" [ "$RC" != 0 ]
+check "upload failure: the failed upload is not retried" [ "$(grep -c "^POST $A/releases/1/assets" "$S/calls")" = 1 ]
+check "upload failure: no --retry on POST/DELETE" retry_reads_only 0
 check "upload failure: draft deleted" grep -qx "DELETE $A/releases/1 auth" "$S/calls"
 check "upload failure: nothing published" not_published
 check "upload failure: token in no curl or git argv" no_token_in_argv

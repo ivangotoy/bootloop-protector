@@ -106,7 +106,12 @@ trap 'rm -rf "$AUTH_DIR"' EXIT
 AUTH_H="$AUTH_DIR/header"
 (umask 077; printf 'Authorization: token %s\n' "$RELEASE_TOKEN" > "$AUTH_H")
 auth() { printf 'Authorization: token %s' "$RELEASE_TOKEN"; }
-api() { local m="$1" p="$2"; shift 2; curl -sS --connect-timeout 30 --max-time 600 --fail-with-body --retry 3 -X "$m" -H "@$AUTH_H" "$@" "$API$p"; }
+# Only reads are retried: a retried POST/PATCH/DELETE can repeat a change the forge made
+api() {
+    local m="$1" p="$2" r=""; shift 2
+    case "$m" in GET|HEAD) r="--retry 3" ;; esac
+    curl -sS --connect-timeout 30 --max-time 600 --fail-with-body $r -X "$m" -H "@$AUTH_H" "$@" "$API$p"
+}
 http_code() { curl -sS --connect-timeout 30 --max-time 600 -o /dev/null -w '%{http_code}' -H "@$AUTH_H" "$API$1"; }
 git_auth() {
     (n="${GIT_CONFIG_COUNT:-0}"
