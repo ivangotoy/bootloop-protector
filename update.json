@@ -1,6 +1,6 @@
 {
-  "version": "v1.3-fork1",
+  "version": "v1.3",
   "versionCode": 4,
-  "zipUrl": "https://git.digtvbg.com/ivangotoy/bootloop-protector/releases/download/v1.3-fork1/bootloop-protector-v1.3-fork1.zip",
-  "changelog": "https://git.digtvbg.com/ivangotoy/bootloop-protector/raw/branch/main/CHANGELOG.md"
+  "zipUrl": "https://github.com/nikakvo/bootloop-protector/releases/download/v1.3/bootloop-protector-v1.3.zip",
+  "changelog": "https://raw.githubusercontent.com/nikakvo/bootloop-protector/main/CHANGELOG.md"
 }
