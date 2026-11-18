@@ -268,6 +268,47 @@ conf BOOT_TIMEOUT 99999999999999999999
 STUB_TICK=10 STUB_SHUTDOWN_AFTER=100 run service.sh
 check "config with 20 digits: default boot timeout applies" has "$DATA/bp.log" "Boot did not complete in 180s"
 
+# ---------- uninstall.sh ----------
+
+setup uninstall-rescued
+add_mod example_mod
+add_mod example_off
+touch "$ADB/modules/example_mod/disable" "$ADB/modules/example_off/disable"
+add_script example.sh
+chmod 644 "$ADB/service.d/example.sh"
+printf 'module:example_mod\nscript:%s\n' "$ADB/service.d/example.sh" > "$DATA/state/rescue.list"
+run uninstall.sh
+check "uninstall: exits 0" [ $? = 0 ]
+check "uninstall: module disabled by the rescue enabled again" not disabled example_mod
+check "uninstall: script disabled by the rescue executable again" executable example.sh
+check "uninstall: module disabled by hand stays disabled" disabled example_off
+check "uninstall: data folder removed" [ ! -e "$DATA" ]
+check "uninstall: no reboot" not rebooted
+
+setup uninstall-no-list
+add_mod example_off
+touch "$ADB/modules/example_off/disable"
+run uninstall.sh
+check "uninstall without a rescue list: exits 0" [ $? = 0 ]
+check "uninstall without a rescue list: nothing enabled" disabled example_off
+check "uninstall without a rescue list: data folder removed" [ ! -e "$DATA" ]
+
+setup uninstall-no-data
+rm -rf "$DATA"
+run uninstall.sh
+check "uninstall without a data folder: exits 0" [ $? = 0 ]
+check "uninstall without a data folder: none created" [ ! -e "$DATA" ]
+
+setup uninstall-no-common
+add_mod example_mod
+touch "$ADB/modules/example_mod/disable"
+echo module:example_mod > "$DATA/state/rescue.list"
+mkdir "$R/lone"
+cp "$REPO/uninstall.sh" "$R/lone/uninstall.sh"
+(cd "$R" && PATH="$W/bin:$PATH" BP_ROOT="$R" timeout 60 $SH "$R/lone/uninstall.sh") > "$R/out" 2>&1
+check "uninstall without common.sh: exits 0" [ $? = 0 ]
+check "uninstall without common.sh: data folder removed" [ ! -e "$DATA" ]
+
 # ---------- bp.sh ----------
 
 setup cli
