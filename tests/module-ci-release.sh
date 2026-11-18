@@ -83,6 +83,12 @@ scenario() {
     "$REAL_GIT" push -q "$S/upstream.git" up:refs/heads/main
   ) || { bad "$1: fixture repos"; return 1; }
   BASE=$("$REAL_GIT" -C "$S/seed" rev-parse main)
+  # OFF_MAIN=1: dispatch a commit that is in the clone (branch side) but not on main
+  RUN_BASE=$BASE
+  if [ -n "${OFF_MAIN:-}" ]; then
+    "$REAL_GIT" -C "$S/seed" push -q "$S/origin.git" up:refs/heads/side || { bad "$1: side branch"; return 1; }
+    RUN_BASE=$("$REAL_GIT" -C "$S/seed" rev-parse up)
+  fi
 
   # what the build step leaves in .ci-out (module-ci.sh build, without the uid switch)
   (
@@ -122,7 +128,7 @@ PY
   printf '[url "file://%s/origin.git"]\n\tinsteadOf = %s/%s.git\n' "$S" "$SERVER_URL" "$REPOSITORY" >> "$GIT_CONFIG_GLOBAL"
 
   (cd "$S" && PATH="$W/bin:$PATH" TMPDIR="$S/tmp" MCI_LOG="$S/log" SERVER_URL="$SERVER_URL" \
-    REPOSITORY="$REPOSITORY" BASE_SHA="$BASE" RELEASE_TOKEN="$TOKEN" RUN_NUMBER="$RUN_NUMBER" \
+    REPOSITORY="$REPOSITORY" BASE_SHA="$RUN_BASE" RELEASE_TOKEN="$TOKEN" RUN_NUMBER="$RUN_NUMBER" \
     bash "$REPO/.forgejo/module-ci.sh" release "$S/src") > "$S/out" 2>&1
   RC=$?
   cp "$S/requests" "$S/requests.release" 2>/dev/null
@@ -237,5 +243,12 @@ scenario sync-bad-version "SYNC_ROOT_PROP=module.prop" "v1.3&x" ""
 check "SYNC_ROOT_PROP with a version sed cannot take: exits non-zero" [ "$RC" != 0 ]
 check "SYNC_ROOT_PROP with a version sed cannot take: stops before the draft" not grep -q "^POST $A/releases" "$S/calls"
 check "SYNC_ROOT_PROP with a version sed cannot take: says why" grep -q "has characters other than" "$S/out"
+
+# ---------- dispatched commit not on main ----------
+
+OFF_MAIN=1 scenario off-main "" "" ""
+check "dispatch of a commit not on main: exits non-zero" [ "$RC" != 0 ]
+check "dispatch of a commit not on main: stops before the draft" not grep -q "^POST $A/releases" "$S/calls"
+check "dispatch of a commit not on main: says why" grep -q "not in main" "$S/out"
 
 exit 0
