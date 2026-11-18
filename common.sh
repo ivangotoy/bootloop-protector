@@ -52,11 +52,18 @@ conf_num() {
   if [ "$v" -lt "$3" ] || [ "$v" -gt "$4" ]; then echo "$2"; else echo "$v"; fi
 }
 
+# end_line FILE - a hand-edited file may lack the final newline: add it,
+# so the next append starts a line of its own
+end_line() {
+  if [ -s "$1" ] && [ -n "$(tail -c 1 "$1")" ]; then echo >> "$1"; fi
+}
+
 # conf_set KEY VALUE - change or add one setting, keeping comments
 conf_set() {
   if grep -q "^$1=" "$BP_CONF" 2>/dev/null; then
     sed -i "s/^$1=.*/$1=$2/" "$BP_CONF"
   else
+    end_line "$BP_CONF"
     echo "$1=$2" >> "$BP_CONF"
   fi
 }

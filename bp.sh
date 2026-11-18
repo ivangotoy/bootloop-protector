@@ -18,7 +18,7 @@ valid_id() {
 list_set() {
   touch "$1"
   if [ "$3" = 1 ]; then
-    list_clean "$1" | grep -Fxq -e "$2" || printf '%s\n' "$2" >> "$1"
+    list_clean "$1" | grep -Fxq -e "$2" || { end_line "$1"; printf '%s\n' "$2" >> "$1"; }
   else
     while IFS= read -r l || [ -n "$l" ]; do
       c=$(printf '%s\n' "$l" | sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')

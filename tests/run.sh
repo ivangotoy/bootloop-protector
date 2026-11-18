@@ -315,6 +315,19 @@ check "allow-module: hand-edited list keeps other entries" hasx "$DATA/allowed-m
 run bp.sh allow-script -n 1
 check "allow-script: name -n added" hasx "$DATA/allowed-scripts.txt" "-n"
 
+setup cli-no-final-newline
+printf 'example_keep' >> "$DATA/allowed-modules.txt"
+run bp.sh allow-module example_mod 1
+check "allow-module: list without final newline keeps its last entry" hasx "$DATA/allowed-modules.txt" "example_keep"
+check "allow-module: list without final newline gets the new entry" hasx "$DATA/allowed-modules.txt" "example_mod"
+grep -v '^VOLKEY_RESCUE=' "$DATA/config" | grep -v '^MAX_ATTEMPTS=' > "$R/config"
+printf 'VOLKEY_RESCUE=0' >> "$R/config"
+cp "$R/config" "$DATA/config"
+run bp.sh set-conf MAX_ATTEMPTS 5
+run bp.sh conf
+check "set-conf: config without final newline gets the new setting" hasx "$R/out" "MAX_ATTEMPTS=5"
+check "set-conf: config without final newline keeps its last setting" hasx "$DATA/config" "VOLKEY_RESCUE=0"
+
 setup cli-enable-all
 add_mod example_a
 add_mod example_b
