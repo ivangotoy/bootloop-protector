@@ -13,6 +13,7 @@ trap '[ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null; rm -rf "$W"' EXIT
 ok() { echo "ok   $1"; }
 bad() { echo "FAIL $1"; }
 check() { local n=$1; shift; if "$@"; then ok "$n"; else bad "$n"; fi; }
+not() { ! "$@"; }
 
 unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY all_proxy ALL_PROXY no_proxy NO_PROXY
 unset GIT_CONFIG_COUNT GIT_DIR GIT_WORK_TREE
@@ -58,7 +59,10 @@ scenario() {
   printf '[url "file://%s/upstream.git"]\n\tinsteadOf = https://github.com/nikakvo/bootloop-protector.git\n' "$S" >> "$GIT_CONFIG_GLOBAL"
   (cd "$REPO" && tar -c --exclude=./.git --exclude=./.ci-out .) | tar -x -C "$S/seed"
   [ -n "$2" ] && printf '%s\n' "$2" >> "$S/seed/.forgejo/module-ci.conf"
-  [ -n "$3" ] && sed -i "s/^version=.*/version=$3/" "$S/seed/module.prop"
+  if [ -n "$3" ]; then
+    awk -v v="$3" '/^version=/ { print "version=" v; next } { print }' "$S/seed/module.prop" > "$S/module.prop"
+    cp "$S/module.prop" "$S/seed/module.prop"
+  fi
   (
     set -e
     cd "$S/seed"
@@ -222,5 +226,10 @@ check "SYNC_ROOT_PROP: exits 0" [ "$RC" = 0 ]
 check "SYNC_ROOT_PROP: root module.prop version" bash -c '[ "$(sed -n "s/^version=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$TAG"
 check "SYNC_ROOT_PROP: root module.prop versionCode" bash -c '[ "$(sed -n "s/^versionCode=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$VC"
 check "SYNC_ROOT_PROP: root module.prop updateJson" bash -c '[ "$(sed -n "s/^updateJson=//p" <<<"$1")" = "$2" ]' _ "$(origin_show module.prop)" "$SERVER_URL/$REPOSITORY/raw/branch/main/.forgejo/update.json"
+
+scenario sync-bad-version "SYNC_ROOT_PROP=module.prop" "v1.3&x" ""
+check "SYNC_ROOT_PROP with a version sed cannot take: exits non-zero" [ "$RC" != 0 ]
+check "SYNC_ROOT_PROP with a version sed cannot take: stops before the draft" not grep -q "^POST $A/releases" "$S/calls"
+check "SYNC_ROOT_PROP with a version sed cannot take: says why" grep -q "has characters other than" "$S/out"
 
 exit 0

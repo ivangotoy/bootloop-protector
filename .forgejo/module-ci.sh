@@ -156,6 +156,12 @@ case "$BUILT_VC" in ''|*[!0-9]*) die "built versionCode '$BUILT_VC' is not a num
 VERSION="$(printf '%s' "$BUILT_VERSION" | sed -E 's/-(fork|ci)[0-9]+$//')-ci$RUN_NUMBER"
 VC=$((BUILT_VC + VERSION_CODE_OFFSET))
 [ "$VC" -ge "$VERSION_CODE_FLOOR" ] || die "versionCode $VC is below the floor $VERSION_CODE_FLOOR"
+if [ -n "$SYNC_ROOT_PROP" ]; then
+    # VERSION and VC end up in a sed replacement (SYNC_ROOT_PROP, after publish): check them
+    # here, before anything is created on the forge
+    [[ "$VERSION" =~ ^[A-Za-z0-9._+-]+$ ]] || die "version '$VERSION' has characters other than A-Za-z0-9._+-"
+    [[ "$VC" =~ ^[0-9]+$ ]] || die "versionCode '$VC' is not a number"
+fi
 TAG="$(printf '%s' "$VERSION" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/-+/-/g; s/^-//; s/-$//')"
 case "$TAG" in v*) ;; *) TAG="v$TAG" ;; esac
 ZIP_NAME="$ZIP_PREFIX-$TAG.zip"
