@@ -22,7 +22,10 @@ REAL_CURL=$(command -v curl)
 TOKEN=example-token-5f3a9c0d
 REPOSITORY=example/bootloop-protector
 RUN_NUMBER=7
-TAG=v1.3-ci7
+# the tag module-ci.sh makes from the built version (same rules as there)
+TAG="$(sed -n 's/^version=//p' "$REPO/module.prop" | head -n1 | tr -d '\r' | sed -E 's/-(fork|ci)[0-9]+$//')-ci$RUN_NUMBER"
+TAG="$(printf '%s' "$TAG" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/-+/-/g; s/^-//; s/-$//')"
+case "$TAG" in v*) ;; *) TAG="v$TAG" ;; esac
 ZIP_NAME=bootloop-protector-$TAG.zip
 
 # version-manager shims (asdf, pyenv) need the real HOME, which the scenarios replace
