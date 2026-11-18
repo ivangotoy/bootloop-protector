@@ -4,6 +4,7 @@
 # Syntax checks of every script, then the real module scripts run against a
 # fake /data/adb (BP_ROOT, see common.sh) with stub Android commands.
 # BP_TEST_SH picks the shell that runs the module scripts (default: sh).
+# tests/module-ci-release.sh runs .forgejo/module-ci.sh release against a fake forge.
 # tests/ is not part of the module zip (.forgejo/module-ci.conf lists what is packed).
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -347,6 +348,24 @@ touch "$ADB/modules/example_a/disable" "$ADB/modules/example_b/disable"
 run bp.sh enable-all
 check "enable-all: reports the modules it enabled" hasx "$R/out" "Enabled 2 module(s). Reboot to apply."
 check "enable-all: modules enabled" not disabled example_a
+
+# ---------- .forgejo/module-ci.sh release, offline ----------
+
+if command -v bash >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 &&
+   command -v git >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+  bash "$REPO/tests/module-ci-release.sh" > "$W/mci.out" 2>&1
+  mrc=$?
+  while IFS= read -r l; do
+    case "$l" in
+      "ok   "*) ok "module-ci ${l#ok   }" ;;
+      "FAIL "*) bad "module-ci ${l#FAIL }" ;;
+      "     "*) echo "$l" ;;
+    esac
+  done < "$W/mci.out"
+  if [ "$mrc" != 0 ]; then bad "module-ci release harness exited $mrc"; tail -n 5 "$W/mci.out"; fi
+else
+  skip "module-ci release harness (needs bash, python3, git and curl)"
+fi
 
 echo ""
 echo "passed $PASS, failed $FAIL, skipped $SKIP (module scripts run with: $SH)"
