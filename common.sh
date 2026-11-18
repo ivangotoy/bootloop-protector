@@ -205,7 +205,13 @@ rescue() {
       level=2
     else
       take_snapshot "$BP_STATE/now"
-      grep -Fxv -f "$BP_STATE/baseline" "$BP_STATE/now" > "$BP_STATE/suspects"
+      # busybox grep matches every line with an empty pattern file, GNU grep none:
+      # with an empty trusted setup everything that runs now is new
+      if [ -s "$BP_STATE/baseline" ]; then
+        grep -Fxv -f "$BP_STATE/baseline" "$BP_STATE/now" > "$BP_STATE/suspects"
+      else
+        cat "$BP_STATE/now" > "$BP_STATE/suspects"
+      fi
       rm -f "$BP_STATE/now"
       if [ ! -s "$BP_STATE/suspects" ]; then
         bp_log "Nothing changed since the trusted setup - going to level 2"

@@ -191,6 +191,16 @@ check "restore: re-enables what the rescue disabled" hasx "$R/out" "Re-enabled 2
 check "restore: modules enabled again" not disabled example_new
 check "restore: rescue list closed" [ ! -f "$DATA/state/rescue.list" ]
 
+setup pfd-empty-baseline
+run bp.sh trust-now
+add_mod example_new
+add_mod example_other
+echo example_other >> "$DATA/allowed-modules.txt"
+echo 3 > "$DATA/state/attempts"
+run post-fs-data.sh
+check "trusted empty setup: level 1 disables the new module" disabled example_new
+check "trusted empty setup: level 1" [ "$(state level)" = 1 ]
+
 setup pfd-gaveup
 add_mod example_mod
 touch "$ADB/modules/example_mod/disable"
