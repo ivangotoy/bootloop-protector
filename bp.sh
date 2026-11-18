@@ -165,7 +165,8 @@ case "$1" in
     ;;
 
   allow-script)
-    case "$2" in ''|*/*) echo "Bad script name"; exit 1 ;; esac
+    # The list cannot hold a name with # or spaces at its ends: list_clean reads it as another name
+    case "$2" in ''|*/*|*'#'*|' '*|*' ') echo "Bad script name"; exit 1 ;; esac
     list_set "$BP_DATA/allowed-scripts.txt" "$2" "$3" || { echo "Could not write allowed-scripts.txt"; exit 1; }
     bp_log "Never disable script $2: $([ "$3" = 1 ] && echo on || echo off)"
     echo "ok"

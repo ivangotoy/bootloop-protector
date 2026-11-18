@@ -297,6 +297,11 @@ check "allow-script: name starting with - added" hasx "$DATA/allowed-scripts.txt
 run bp.sh allow-script -x.sh 0
 check "allow-script: name starting with - removed" not hasx "$DATA/allowed-scripts.txt" "-x.sh"
 check "allow-script: other entries kept" hasx "$DATA/allowed-scripts.txt" "keep.sh"
+run bp.sh allow-script 'a#b.sh' 1
+check "allow-script: name with # refused" hasx "$R/out" "Bad script name"
+check "allow-script: refused name not written" not has "$DATA/allowed-scripts.txt" "a#b.sh"
+run bp.sh allow-script ' a.sh' 1
+check "allow-script: name with a leading space refused" hasx "$R/out" "Bad script name"
 run bp.sh allow-module example_mod 1
 check "allow-module: added" hasx "$DATA/allowed-modules.txt" "example_mod"
 run bp.sh allow-module example_mod 0
