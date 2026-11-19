@@ -284,4 +284,55 @@ kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; SERVER_PID=""
 check "stalled upstream fetch: build fails on its own, not by the 30 s timeout (rc $RC, ${took}s)" bash -c '[ "$1" != 0 ] && [ "$1" != 124 ] && [ "$2" -lt 20 ]' _ "$RC" "$took"
 check "stalled upstream fetch: git reports the low-speed abort" grep -q "Operation too slow" "$S/out"
 
+# ---------- build step: what the unprivileged build gets ----------
+# module-ci.sh build past the fetch (no upstream). setpriv is a stub that records the environment
+# and argv it starts with and never runs kill; env logs its argv; chown does nothing (any test uid).
+# The caller exports names the script uses itself (WORK, OUT, BUILD_UID), a variable that must not
+# reach the build, a signing secret that must, and entries bash cannot un-export.
+
+S="$W/build"
+mkdir -p "$S/src" "$S/bin" "$S/home"
+export HOME="$S/home" GIT_CONFIG_GLOBAL="$S/gitconfig" GIT_CONFIG_NOSYSTEM=1
+printf '[user]\n\tname = Example Dev\n\temail = dev@example.invalid\n[init]\n\tdefaultBranch = main\n' > "$GIT_CONFIG_GLOBAL"
+cat > "$S/bin/setpriv" <<EOF
+#!/bin/sh
+while [ \$# -gt 0 ]; do case "\$1" in --*) shift ;; *) break ;; esac; done
+[ "\$1" = kill ] && exit 0
+tr '\\0' '\\n' < /proc/\$\$/environ > "$S/build-env"
+printf '%s\\n' "\$@" > "$S/setpriv-argv"
+exec "\$@"
+EOF
+# python, not sh: a shell would add PWD and SHLVL to the environment it passes on
+cat > "$S/bin/env" <<EOF
+#!$W/py/python3 -I
+import os, sys
+open("$S/env-argv", "a").write("".join(a + "\n" for a in sys.argv[1:]))
+os.execv("$(command -v env)", ["env"] + sys.argv[1:])
+EOF
+printf '#!/bin/sh\nexit 0\n' > "$S/bin/chown"
+chmod 755 "$S/bin/setpriv" "$S/bin/env" "$S/bin/chown"
+(
+  set -e
+  cd "$S/src"
+  "$REAL_GIT" init -q
+  mkdir .forgejo
+  cp "$REPO/.forgejo/module-ci.sh" .forgejo/
+  printf 'build() { export -p > "$OUT/build-user-env"; : > "$OUT/module.zip"; }\n' > .forgejo/module-ci.conf
+  "$REAL_GIT" add -A && "$REAL_GIT" commit -q -m "example base"
+) || bad "build: fixture repo"
+SECRET=example-sign-secret-7c1d
+(cd "$S" && env 'example.name=1' 'BASH_FUNC_example_fn%%=() {  :
+}' SHELLOPTS=braceexpand:hashall:interactive-comments \
+  WORK=/nonexistent/example-work OUT=/nonexistent/example-out BUILD_UID=1000 EXAMPLE_CALLER_VAR=1 \
+  SIGN_KEY_PASSWORD="$SECRET" PATH="$S/bin:$PATH" SERVER_URL=http://127.0.0.1:1 \
+  REPOSITORY=example/example_mod BASE_SHA="$("$REAL_GIT" -C "$S/src" rev-parse HEAD)" \
+  timeout 60 bash "$REPO/.forgejo/module-ci.sh" build "$S/src") > "$S/out" 2>&1
+RC=$?
+want="ANDROID_HOME ANDROID_SDK_ROOT BASE_SHA GRADLE_USER_HOME HOME JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 LANG OUT PATH REPOSITORY SERVER_URL SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_KEY_PASSWORD SIGN_STORE_PASSWORD "
+check "build step: exits 0 when the caller exports WORK, OUT and BUILD_UID" [ "$RC" = 0 ]
+check "build step: zip left in the work tree's .ci-out" [ -f "$S/src/.ci-out/module.zip" ]
+check "build step: build user gets exactly the listed variables" bash -c '[ "$(cut -d= -f1 "$1" 2>/dev/null | LC_ALL=C sort | tr "\n" " ")" = "$2" ]' _ "$S/build-env" "$want"
+check "build step: signing secret reaches the build user" grep -qxF "SIGN_KEY_PASSWORD=$SECRET" "$S/build-env"
+check "build step: signing secret in no env or setpriv argv" bash -c '[ -s "$1" ] && [ -s "$2" ] && ! grep -qF -e "$3" "$1" "$2"' _ "$S/env-argv" "$S/setpriv-argv" "$SECRET"
+
 exit 0
