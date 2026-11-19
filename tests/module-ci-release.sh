@@ -62,6 +62,9 @@ scenario() {
   printf '[url "file://%s/upstream.git"]\n\tinsteadOf = https://github.com/nikakvo/bootloop-protector.git\n' "$S" >> "$GIT_CONFIG_GLOBAL"
   (cd "$REPO" && tar -c --exclude=./.git --exclude=./.ci-out .) | tar -x -C "$S/seed"
   [ -n "$2" ] && printf '%s\n' "$2" >> "$S/seed/.forgejo/module-ci.conf"
+  # the fork's last published update.json: none unless LAST_JSON gives one
+  rm -f "$S/seed/.forgejo/update.json"
+  [ -n "${LAST_JSON:-}" ] && printf '%s\n' "$LAST_JSON" > "$S/seed/.forgejo/update.json"
   if [ -n "$3" ]; then
     awk -v v="$3" '/^version=/ { print "version=" v; next } { print }' "$S/seed/module.prop" > "$S/module.prop"
     cp "$S/module.prop" "$S/seed/module.prop"
@@ -365,5 +368,19 @@ check "build step, upstream-desc planted as a link: file behind it not copied" s
 build_case uphard 'printf x > "$OUT/module.zip"; ln "$V/secret" "$OUT/upstream-desc"'
 check "build step, upstream-desc planted as a hard link: refused" [ "$RC" != 0 ]
 check "build step, upstream-desc planted as a hard link: file behind it not copied" sh -c '! grep -qs "secret line" "$1"' sh "$D/work/.ci-out/desc"
+
+# ---------- versionCode above the last published release ----------
+# update.json at the dispatched commit already holds what offset alone would give
+LAST_JSON="{\"version\": \"v0-ci1\", \"versionCode\": $((BUILT_VC + 3))}"
+scenario lastvc "" "" ""
+LAST_JSON=""
+check "last release: exits 0" [ "$RC" = 0 ]
+check "last release: zip versionCode is the last published + 1 ($((BUILT_VC + 4)))" bash -c '[ "$(sed -n "s/^versionCode=//p" <<<"$1")" = "$2" ]' _ "$(zip_prop "$S/asset.zip")" "$((BUILT_VC + 4))"
+check "last release: update.json versionCode is the last published + 1" [ "$(origin_show .forgejo/update.json | json_get versionCode)" = "$((BUILT_VC + 4))" ]
+LAST_JSON='{"version": "v0-ci1", "versionCode": "x"}'
+scenario lastbad "" "" ""
+LAST_JSON=""
+check "last release with a non-number versionCode: refused" [ "$RC" != 0 ]
+check "last release with a non-number versionCode: nothing published" not_published
 
 exit 0
