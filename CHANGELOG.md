@@ -13,6 +13,19 @@
 - Recovery rescue: the count on the module card shows only the items switched off by that flash
 - The installer shows your own "trusted after N minutes" setting
 
+### Fork build (Forgejo)
+
+- Uninstalling switches back on the modules and scripts a rescue had switched off before it
+  removes the data folder, also when the root manager starts uninstall.sh by its bare name
+- bp.sh works when started by its bare name from the module folder (`sh bp.sh status`)
+- The boot counter is synced to storage right after it is written
+- Numbers with a leading zero (08, 09) in the config and the state files are read as decimal;
+  a damaged state value falls back to its default instead of stopping the boot script
+- The allow lists and module.prop are kept when their temporary copy cannot be written
+- Appends to hand-edited config and allow-list files start a line of their own
+- Level 1 rescue with an empty trusted setup treats every module and script as new
+- Updates come from the Forgejo build
+
 ## v1.2
 
 - The WebUI opens fast again on a quick reopen: no more waiting about 8 seconds for the status
