@@ -356,6 +356,16 @@ cp "$REPO/uninstall.sh" "$R/lone/uninstall.sh"
 check "uninstall without common.sh: exits 0" [ $? = 0 ]
 check "uninstall without common.sh: data folder removed" [ ! -e "$DATA" ]
 
+setup uninstall-bare-name
+add_mod example_mod
+touch "$ADB/modules/example_mod/disable"
+echo module:example_mod > "$DATA/state/rescue.list"
+cp "$REPO/uninstall.sh" "$REPO/common.sh" "$MOD/"
+(cd "$MOD" && PATH="$W/bin:$PATH" BP_ROOT="$R" STUB_R="$R" timeout 60 $SH uninstall.sh) > "$R/out" 2>&1
+check "uninstall started without a path: exits 0" [ $? = 0 ]
+check "uninstall started without a path: module disabled by the rescue enabled again" not disabled example_mod
+check "uninstall started without a path: data folder removed" [ ! -e "$DATA" ]
+
 # ---------- bp.sh ----------
 
 setup cli
