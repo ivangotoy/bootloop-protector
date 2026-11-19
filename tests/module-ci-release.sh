@@ -324,15 +324,16 @@ SECRET=example-sign-secret-7c1d
 (cd "$S" && env 'example.name=1' 'BASH_FUNC_example_fn%%=() {  :
 }' SHELLOPTS=braceexpand:hashall:interactive-comments \
   WORK=/nonexistent/example-work OUT=/nonexistent/example-out BUILD_UID=1000 EXAMPLE_CALLER_VAR=1 \
-  SIGN_KEY_PASSWORD="$SECRET" PATH="$S/bin:$PATH" SERVER_URL=http://127.0.0.1:1 \
+  SIGN_KEY_PASSWORD="$SECRET" GIT_HTTP_LOW_SPEED_TIME=7 PATH="$S/bin:$PATH" SERVER_URL=http://127.0.0.1:1 \
   REPOSITORY=example/example_mod BASE_SHA="$("$REAL_GIT" -C "$S/src" rev-parse HEAD)" \
   timeout 60 bash "$REPO/.forgejo/module-ci.sh" build "$S/src") > "$S/out" 2>&1
 RC=$?
-want="ANDROID_HOME ANDROID_SDK_ROOT BASE_SHA GRADLE_USER_HOME HOME JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 LANG OUT PATH REPOSITORY SERVER_URL SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_KEY_PASSWORD SIGN_STORE_PASSWORD "
+want="ANDROID_HOME ANDROID_SDK_ROOT BASE_SHA GIT_HTTP_LOW_SPEED_LIMIT GIT_HTTP_LOW_SPEED_TIME GRADLE_USER_HOME HOME JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 LANG OUT PATH REPOSITORY SERVER_URL SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_KEY_PASSWORD SIGN_STORE_PASSWORD "
 check "build step: exits 0 when the caller exports WORK, OUT and BUILD_UID" [ "$RC" = 0 ]
 check "build step: zip left in the work tree's .ci-out" [ -f "$S/src/.ci-out/module.zip" ]
 check "build step: build user gets exactly the listed variables" bash -c '[ "$(cut -d= -f1 "$1" 2>/dev/null | LC_ALL=C sort | tr "\n" " ")" = "$2" ]' _ "$S/build-env" "$want"
 check "build step: signing secret reaches the build user" grep -qxF "SIGN_KEY_PASSWORD=$SECRET" "$S/build-env"
 check "build step: signing secret in no env or setpriv argv" bash -c '[ -s "$1" ] && [ -s "$2" ] && ! grep -qF -e "$3" "$1" "$2"' _ "$S/env-argv" "$S/setpriv-argv" "$SECRET"
+check "build step: build() keeps the caller's git low-speed time, gets the default limit" bash -c 'grep -qx "declare -x GIT_HTTP_LOW_SPEED_TIME=\"7\"" "$1" && grep -qx "declare -x GIT_HTTP_LOW_SPEED_LIMIT=\"1024\"" "$1"' _ "$S/src/.ci-out/build-user-env"
 
 exit 0

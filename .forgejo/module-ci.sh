@@ -92,7 +92,7 @@ if [ "$MODE" = build ]; then
     # the export off every other variable (not unset: the caller may export a name this script uses,
     # such as WORK, OUT or BUILD_UID), export these with the builtin, and let env(1) drop by name
     # whatever bash cannot un-export (names that are not identifiers, exported functions).
-    (   keep=" PATH JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_STORE_PASSWORD SIGN_KEY_PASSWORD SERVER_URL REPOSITORY BASE_SHA "
+    (   keep=" PATH JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_STORE_PASSWORD SIGN_KEY_PASSWORD SERVER_URL REPOSITORY BASE_SHA GIT_HTTP_LOW_SPEED_LIMIT GIT_HTTP_LOW_SPEED_TIME "
         drop=()
         for v in $(compgen -e); do
             case "$keep" in *" $v "*) ;; *) export -n "$v" 2>/dev/null || drop+=(-u "$v") ;; esac
@@ -100,7 +100,7 @@ if [ "$MODE" = build ]; then
         while IFS= read -r -d '' e; do
             [[ "${e%%=*}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || drop+=(-u "${e%%=*}")
         done < "/proc/$BASHPID/environ"
-        export PATH HOME="$WORK/.ci-home" LANG=C.UTF-8 GRADLE_USER_HOME=/ci/gradle \
+        export PATH GIT_HTTP_LOW_SPEED_LIMIT GIT_HTTP_LOW_SPEED_TIME HOME="$WORK/.ci-home" LANG=C.UTF-8 GRADLE_USER_HOME=/ci/gradle \
             JAVA_HOME="${JAVA_HOME:-}" JAVA_HOME_21="${JAVA_HOME_21:-}" JAVA_HOME_26="${JAVA_HOME_26:-}" \
             ANDROID_HOME=/opt/android-sdk ANDROID_SDK_ROOT=/opt/android-sdk \
             SIGN_KEYSTORE_B64="${SIGN_KEYSTORE_B64:-}" SIGN_KEY_ALIAS="${SIGN_KEY_ALIAS:-}" \
