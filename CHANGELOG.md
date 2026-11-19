@@ -16,7 +16,7 @@
 ### Fork build (Forgejo)
 
 - Uninstalling switches back on the modules and scripts a rescue had switched off before it
-  removes the data folder, also when the root manager starts uninstall.sh by its bare name
+  removes the data folder, also when uninstall.sh is started by its bare name
 - bp.sh works when started by its bare name from the module folder (`sh bp.sh status`)
 - The boot counter is synced to storage right after it is written
 - Numbers with a leading zero (08, 09) in the config and the state files are read as decimal;
