@@ -92,12 +92,14 @@ printf '#!/bin/sh\nexit 1\n' > "$W/bin/pgrep"
 printf '#!/bin/sh\nexit 0\n' > "$W/bin/sleep"
 cat > "$W/bin/sync" <<'EOF'
 #!/bin/sh
-# help text from $STUB_R/sync.help when a test sets one; every sync is logged
+# help text from $STUB_R/sync.help when a test sets one; every sync is logged,
+# a sync of a file with what the file holds at that moment
 if [ "$1" = --help ]; then
   if [ -f "$STUB_R/sync.help" ]; then cat "$STUB_R/sync.help"; else echo "Usage: sync [-df] [FILE]..."; fi
   exit 0
 fi
-echo "sync $*" >> "$STUB_R/calls"
+c=""; [ $# -gt 0 ] && c=" holds $(cat "$1" 2>/dev/null)"
+echo "sync $*$c" >> "$STUB_R/calls"
 EOF
 chmod 755 "$W/bin"/*
 
@@ -149,7 +151,7 @@ check "post-fs-data: first boot counts attempt 1" [ "$(state attempts)" = 1 ]
 check "post-fs-data: module card shows booting" has "$MOD/module.prop" "description=⏳ Booting... (attempt 1 of 3 allowed)"
 check "post-fs-data: first boot does not reboot" not rebooted
 
-check "post-fs-data: boot counter synced, that file only" [ "$(grep '^sync' "$R/calls")" = "sync $DATA/state/attempts" ]
+check "post-fs-data: boot counter synced after it is written, that file only" [ "$(grep '^sync' "$R/calls")" = "sync $DATA/state/attempts holds 1" ]
 
 setup pfd-sync-nofile
 echo "Usage: sync" > "$R/sync.help"
