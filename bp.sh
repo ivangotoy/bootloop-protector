@@ -2,7 +2,7 @@
 # Bootloop Protector - command line used by the WebUI and the Action button
 # Usage: su -c 'sh /data/adb/modules/bootloop-protector/bp.sh <command>'
 
-MODDIR=${0%/*}
+case $0 in */*) MODDIR=${0%/*} ;; *) MODDIR=${BP_ROOT:-}/data/adb/modules/bootloop-protector ;; esac
 BP_STAGE=cli
 . "$MODDIR/common.sh"
 

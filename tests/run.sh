@@ -368,6 +368,12 @@ check "uninstall started without a path: data folder removed" [ ! -e "$DATA" ]
 
 # ---------- bp.sh ----------
 
+setup cli-bare-name
+cp "$REPO/bp.sh" "$REPO/common.sh" "$MOD/"
+(cd "$MOD" && PATH="$W/bin:$PATH" BP_ROOT="$R" STUB_R="$R" timeout 60 $SH bp.sh status) > "$R/out" 2>&1
+check "bp.sh started without a path: exits 0" [ $? = 0 ]
+check "bp.sh started without a path: prints the version" grep -q "^version=" "$R/out"
+
 setup cli
 run bp.sh set-conf BOOT_TIMEOUT 240
 check "set-conf: valid value saved" hasx "$DATA/config" "BOOT_TIMEOUT=240"
