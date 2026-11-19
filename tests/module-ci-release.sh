@@ -339,4 +339,31 @@ check "build step: signing secret reaches the build user" grep -qxF "SIGN_KEY_PA
 check "build step: signing secret in no env or setpriv argv" bash -c '[ -s "$1" ] && [ -s "$2" ] && ! grep -qF -e "$3" "$1" "$2"' _ "$S/env-argv" "$S/setpriv-argv" "$SECRET"
 check "build step: build() keeps the caller's git low-speed time, gets the default limit" bash -c 'grep -qx "declare -x GIT_HTTP_LOW_SPEED_TIME=\"7\"" "$1" && grep -qx "declare -x GIT_HTTP_LOW_SPEED_LIMIT=\"1024\"" "$1"' _ "$S/src/.ci-out/build-user-env"
 
+# Build step: $OUT belongs to the build user (merged upstream code). Root must follow no
+# link it left there. build() plays the untrusted build; V is a folder outside the build.
+build_case() {
+  local d="$S/b-$1"
+  rm -rf "$d"; mkdir -p "$d/work/.forgejo" "$d/v"
+  cp "$REPO/.forgejo/module-ci.sh" "$d/work/.forgejo/"
+  printf 'V=%s\nbuild() { %s; }\n' "$d/v" "$2" > "$d/work/.forgejo/module-ci.conf"
+  echo precious > "$d/v/file"
+  echo "example secret line" > "$d/v/secret"
+  ( cd "$d/work" && "$REAL_GIT" init -q && "$REAL_GIT" add -A && "$REAL_GIT" commit -q -m seed ) || bad "build: $1 fixture"
+  (cd "$d" && env -u WORK -u OUT -u BUILD_UID PATH="$S/bin:$PATH" SERVER_URL=http://127.0.0.1:1 \
+    REPOSITORY=example/example_mod BASE_SHA="$("$REAL_GIT" -C "$d/work" rev-parse HEAD)" \
+    timeout 60 bash "$d/work/.forgejo/module-ci.sh" build "$d/work") > "$d/log" 2>&1
+  RC=$?; D=$d
+}
+build_case plain 'printf x > "$OUT/module.zip"; echo "upstream 1.0" > "$OUT/upstream-desc"'
+check "build step: desc taken from upstream-desc" sh -c '[ "$1" = 0 ] && [ "$(cat "$2" 2>/dev/null)" = "upstream 1.0" ]' sh "$RC" "$D/work/.ci-out/desc"
+build_case desclink 'printf x > "$OUT/module.zip"; echo planted > "$OUT/upstream-desc"; ln -s "$V/file" "$OUT/desc"'
+check "build step, desc planted as a link: file behind it untouched" [ "$(cat "$D/v/file")" = precious ]
+check "build step, desc planted as a link: desc written as a file" sh -c '[ -f "$1" ] && [ ! -L "$1" ]' sh "$D/work/.ci-out/desc"
+build_case uplink 'printf x > "$OUT/module.zip"; ln -s "$V/secret" "$OUT/upstream-desc"'
+check "build step, upstream-desc planted as a link: refused" [ "$RC" != 0 ]
+check "build step, upstream-desc planted as a link: file behind it not copied" sh -c '! grep -qs "secret line" "$1"' sh "$D/work/.ci-out/desc"
+build_case uphard 'printf x > "$OUT/module.zip"; ln "$V/secret" "$OUT/upstream-desc"'
+check "build step, upstream-desc planted as a hard link: refused" [ "$RC" != 0 ]
+check "build step, upstream-desc planted as a hard link: file behind it not copied" sh -c '! grep -qs "secret line" "$1"' sh "$D/work/.ci-out/desc"
+
 exit 0
