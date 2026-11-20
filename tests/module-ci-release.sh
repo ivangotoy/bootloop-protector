@@ -299,7 +299,8 @@ check "stalled upstream fetch: git reports the low-speed abort" grep -q "Operati
 
 # ---------- build step: what the unprivileged build gets ----------
 # module-ci.sh build past the fetch (no upstream). setpriv is a stub that records the environment
-# and argv it starts with and never runs kill; env logs its argv; chown does nothing (any test uid).
+# and argv it starts with, and records a kill without running it (`kill -9 -1` as the test user
+# would end this session); env logs its argv; chown does nothing (any test uid).
 # The caller exports names the script uses itself (WORK, OUT, BUILD_UID), a variable that must not
 # reach the build, a signing secret that must, and entries bash cannot un-export.
 
@@ -309,8 +310,8 @@ export HOME="$S/home" GIT_CONFIG_GLOBAL="$S/gitconfig" GIT_CONFIG_NOSYSTEM=1
 printf '[user]\n\tname = Example Dev\n\temail = dev@example.invalid\n[init]\n\tdefaultBranch = main\n' > "$GIT_CONFIG_GLOBAL"
 cat > "$S/bin/setpriv" <<EOF
 #!/bin/sh
+case " \$* " in *" kill "*) echo "kill-requested \$*" >> "$S/setpriv-kills"; exit 0 ;; esac
 while [ \$# -gt 0 ]; do case "\$1" in --*) shift ;; *) break ;; esac; done
-[ "\$1" = kill ] && exit 0
 tr '\\0' '\\n' < /proc/\$\$/environ > "$S/build-env"
 printf '%s\\n' "\$@" > "$S/setpriv-argv"
 exec "\$@"
@@ -334,6 +335,7 @@ chmod 755 "$S/bin/setpriv" "$S/bin/env" "$S/bin/chown"
   "$REAL_GIT" add -A && "$REAL_GIT" commit -q -m "example base"
 ) || bad "build: fixture repo"
 SECRET="$(printf 'example-sign-secret-%s' 7c1d)"
+: > "$S/setpriv-kills"
 (cd "$S" && env 'example.name=1' 'BASH_FUNC_example_fn%%=() {  :
 }' SHELLOPTS=braceexpand:hashall:interactive-comments \
   WORK=/nonexistent/example-work OUT=/nonexistent/example-out BUILD_UID=1000 EXAMPLE_CALLER_VAR=1 \
@@ -344,6 +346,7 @@ RC=$?
 want="ANDROID_HOME ANDROID_SDK_ROOT BASE_SHA GIT_HTTP_LOW_SPEED_LIMIT GIT_HTTP_LOW_SPEED_TIME GRADLE_USER_HOME HOME JAVA_HOME JAVA_HOME_21 JAVA_HOME_26 LANG OUT PATH REPOSITORY SERVER_URL SIGN_KEYSTORE_B64 SIGN_KEY_ALIAS SIGN_KEY_PASSWORD SIGN_STORE_PASSWORD "
 check "build step: exits 0 when the caller exports WORK, OUT and BUILD_UID" [ "$RC" = 0 ]
 check "build step: zip left in the work tree's .ci-out" [ -f "$S/src/.ci-out/module.zip" ]
+check "build step: the build user's processes are killed after the build" grep -q -e '^kill-requested .*--reuid=1000 .*kill -9 -1' "$S/setpriv-kills"
 check "build step: build user gets exactly the listed variables" bash -c '[ "$(cut -d= -f1 "$1" 2>/dev/null | LC_ALL=C sort | tr "\n" " ")" = "$2" ]' _ "$S/build-env" "$want"
 check "build step: signing secret reaches the build user" grep -qxF "SIGN_KEY_PASSWORD=$SECRET" "$S/build-env"
 check "build step: signing secret in no env or setpriv argv" bash -c '[ -s "$1" ] && [ -s "$2" ] && ! grep -qF -e "$3" "$1" "$2"' _ "$S/env-argv" "$S/setpriv-argv" "$SECRET"
@@ -359,11 +362,16 @@ build_case() {
   echo precious > "$d/v/file"
   echo "example secret line" > "$d/v/secret"
   ( cd "$d/work" && "$REAL_GIT" init -q && "$REAL_GIT" add -A && "$REAL_GIT" commit -q -m seed ) || bad "build: $1 fixture"
+  : > "$S/setpriv-kills"
   (cd "$d" && env -u WORK -u OUT -u BUILD_UID PATH="$S/bin:$PATH" SERVER_URL=http://127.0.0.1:1 \
     REPOSITORY=example/example_mod BASE_SHA="$("$REAL_GIT" -C "$d/work" rev-parse HEAD)" \
     timeout 60 bash "$d/work/.forgejo/module-ci.sh" build "$d/work") > "$d/log" 2>&1
   RC=$?; D=$d
 }
+# a failed build: whatever the build user started is killed before the script stops
+build_case failed 'echo "example build failure" >&2; return 1'
+check "build step, failed build: exits non-zero with the build's error" sh -c '[ "$1" != 0 ] && grep -q "example build failure" "$2" && ! grep -q "unbound variable" "$2"' sh "$RC" "$D/log"
+check "build step, failed build: the build user's processes are killed too" grep -q -e '^kill-requested .*--reuid=1000 .*kill -9 -1' "$S/setpriv-kills"
 build_case plain 'printf x > "$OUT/module.zip"; echo "upstream 1.0" > "$OUT/upstream-desc"'
 check "build step: desc taken from upstream-desc" sh -c '[ "$1" = 0 ] && [ "$(cat "$2" 2>/dev/null)" = "upstream 1.0" ]' sh "$RC" "$D/work/.ci-out/desc"
 build_case desclink 'printf x > "$OUT/module.zip"; echo planted > "$OUT/upstream-desc"; ln -s "$V/file" "$OUT/desc"'
