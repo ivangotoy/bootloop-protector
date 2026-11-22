@@ -1,3 +1,7 @@
+## v1.5
+
+- Help: the Log section is in the contents now, so a tap takes you straight to it
+
 ## v1.4
 
 - Help: one phone Back leaves the help page. Before, every tap in the contents added a step, and the page's own back arrow only went back to the top of the help page
