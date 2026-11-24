@@ -149,3 +149,7 @@ by rhythmcache. Bootloop Protector is a new implementation written from scratch.
 ## License
 
 [MIT](LICENSE) © Tears Burn (nikakvo)
+
+## More KernelSU modules
+
+Check out my other great KernelSU modules here: https://git.digtvbg.com/explore/repos?q=kernelsu-module&topic=1
