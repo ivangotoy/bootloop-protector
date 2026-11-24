@@ -10,7 +10,7 @@
       --border:#1f2727;--border2:#2b3535;
       --teal:#2dd4bf;--teal-dim:#2dd4bf30;--amber:#f5a623;--amber-dim:#f5a62322;
       --green:#7ecb35;--red:#e05c5c;--red-dim:#e05c5c22;--cyan:#4ecdc4;--purple:#b07fff;
-      --text:#a9b8b4;--text-dim:#52605d;--text-hi:#e6f0ee;
+      --text:#a9b8b4;--text-dim:#52605d;--text-hi:#e6f0ee;--dim:#52605d;
       --mono:ui-monospace,'IBM Plex Mono','Roboto Mono',Menlo,Consolas,monospace;
       --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     }
@@ -44,7 +44,7 @@
     .box ul,.box ol{margin:8px 0 10px 18px;}
     .box li{margin-bottom:5px;}
     strong{color:var(--text-hi);}
-    code{font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;word-break:break-all;}
+    code{font-family:var(--mono);font-size:12px;color:var(--teal);background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;overflow-wrap:anywhere;}
     pre{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--text);margin:8px 0;}
     pre .cm{color:var(--text-dim);}
     table{width:100%;border-collapse:collapse;font-size:11.5px;font-family:var(--mono);margin:6px 0;}
@@ -66,6 +66,43 @@
     .b-teal{background:rgba(45,212,191,0.1);color:var(--teal);border:1px solid rgba(45,212,191,0.3);}
     .b-purple{background:rgba(176,127,255,0.1);color:var(--purple);border:1px solid rgba(176,127,255,0.25);}
     .footer{text-align:center;padding:24px 16px 8px;font-size:10px;font-family:var(--mono);color:var(--text-dim);}
+  
+    /* Commands: mac-style box; COPY copies one command, never its comment */
+    .code-block { --cb: var(--teal); background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+    .code-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px 6px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    .code-label { font-family: var(--mono); font-size: 9.5px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .code-header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .code-dots { display: flex; gap: 4px; }
+    .code-dot { width: 7px; height: 7px; border-radius: 50%; display: block; }
+    .code-dot:nth-child(1) { background: #ff5f57; }
+    .code-dot:nth-child(2) { background: #febc2e; }
+    .code-dot:nth-child(3) { background: #28c840; }
+    .copy-btn { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; background: transparent; border: 1px solid var(--border2); color: var(--cb); border-radius: 4px; padding: 3px 8px; font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: .05em; cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .copy-btn:active { background: var(--surface2); }
+    .copy-btn.copied { color: #28c840; border-color: rgba(40,200,64,.45); }
+    .copy-btn.failed { color: var(--red); border-color: var(--red); }
+    .code-block pre { margin: 0; border: 0; border-radius: 0; background: transparent; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
+    .code-body { padding: 10px 12px; }
+    .cmd-row { display: flex; align-items: flex-start; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    .cmd-row:last-child { border-bottom: 0; }
+    .cmd-main { flex: 1; min-width: 0; }
+    .code-block pre .sub { color: var(--teal); }
+    .code-block pre .nw { white-space: nowrap; }
+    .cmd-note { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 2px; }
+    /* Back to top */
+    .to-top { position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface2); color: var(--teal); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; -webkit-tap-highlight-color: transparent; }
+    .to-top.show { opacity: 1; pointer-events: auto; }
+    /* Tables on a phone: each row stacked, the name on top and its text under it */
+    @media (max-width: 640px) {
+      .tw { overflow-x: visible; }
+      .tw table, .tw tbody, .tw tr, .tw td { display: block; width: 100%; }
+      .tw tr.th-row { display: none; }
+      .tw tr { padding: 9px 0; border-bottom: 1px solid var(--border); }
+      .tw tr:last-child { border-bottom: none; }
+      .tw td { border-bottom: none; padding: 0; }
+      .tw td:first-child { white-space: normal; overflow-wrap: anywhere; padding: 0 0 3px; }
+      .tw table.multi td[data-label]::before { content: attr(data-label) ': '; color: var(--dim); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    }
   </style>
 </head>
 <body>
@@ -106,6 +143,7 @@
   <a href="#after">After a rescue</a>
   <a href="#settings">Settings</a>
   <a href="#card">Status on the module card</a>
+  <a href="#log">Log</a>
   <a href="#files">Files</a>
   <a href="#commands">Commands</a>
   <a href="#limits">Limits</a>
@@ -124,14 +162,14 @@
 
 <div class="sec-title" id="detect">what it detects</div>
 <div class="box">
-  <table>
-    <tr><th>problem</th><th>how it is caught</th></tr>
+  <div class="tw"><table>
+    <tr class="th-row"><th>problem</th><th>how it is caught</th></tr>
     <tr><td>Boot loop</td><td>The phone restarts before the boot finishes. Every boot is counted; after 3 failed boots in a row (setting) the 4th boot starts a rescue.</td></tr>
     <tr><td>Stuck boot</td><td>The boot animation never ends. After the boot timeout (180 s) the phone is rebooted and the boot counts as failed.</td></tr>
     <tr><td>Zygote crash loop</td><td>The boot animation starts over without a real reboot. 4 zygote restarts during boot start a rescue at once.</td></tr>
     <tr><td>Soft reboot loop</td><td>After the boot, zygote restarts 4 times within 5 minutes. A single soft reboot (done by hand or by an app) is normal and only gives SystemUI 90 s to come back.</td></tr>
     <tr><td>SystemUI failure</td><td>SystemUI restarts 3 times within 60 s, or stays down for 30 s. Can be switched off.</td></tr>
-  </table>
+  </table></div>
   <p class="note">The real zygote is told apart from its freshly started children (which briefly carry
   the same name), so starting apps never looks like a crash.</p>
 </div>
@@ -156,7 +194,7 @@
 
 <div class="sec-title" id="badges">module badges</div>
 <div class="box">
-  <table>
+  <div class="tw"><table>
     <tr><td><span class="badge b-ok">TRUSTED</span></td><td>Part of the trusted setup and unchanged.</td></tr>
     <tr><td><span class="badge b-warn">NEW</span></td><td>Not in the trusted setup. First suspect of a level 1 rescue.</td></tr>
     <tr><td><span class="badge b-warn">UPDATED</span></td><td>In the trusted setup, but changed since. Also a first suspect.</td></tr>
@@ -165,7 +203,7 @@
     <tr><td><span class="badge b-bad">DISABLED BY RESCUE</span></td><td>Switched off by the protector. Restore brings it back.</td></tr>
     <tr><td><span class="badge b-dim">DISABLED</span></td><td>Switched off by you.</td></tr>
     <tr><td><span class="badge b-teal">KEPT ON RESCUE</span></td><td>Set to Never disable.</td></tr>
-  </table>
+  </table></div>
 </div>
 
 <div class="sec-title" id="never">never disable</div>
@@ -218,27 +256,27 @@
 <div class="sec-title" id="settings">settings</div>
 <div class="box">
   <p>All settings apply from the next boot.</p>
-  <table>
-    <tr><th>setting</th><th>default</th><th>meaning</th></tr>
-    <tr><td>Failed boots before a rescue</td><td>3</td><td>Boots in a row that did not finish. Lower reacts faster, higher forgives a random reboot.</td></tr>
-    <tr><td>Boot timeout</td><td>180 s</td><td>A boot slower than this counts as failed. Keep it well above your normal boot time.</td></tr>
-    <tr><td>Zygote restarts = loop</td><td>4</td><td>During boot, or soft reboots within 5 minutes after it.</td></tr>
-    <tr><td>Minutes until trusted</td><td>10</td><td>How long a new setup must run cleanly before it is trusted.</td></tr>
-    <tr><td>SystemUI monitor</td><td>on</td><td>Rescue when SystemUI crash loops or stays down.</td></tr>
-    <tr><td>Volume Up rescue</td><td>on</td><td>Vol+ × 3 during the boot animation.</td></tr>
-  </table>
+  <div class="tw"><table class="multi">
+    <tr class="th-row"><th>setting</th><th>default</th><th>meaning</th></tr>
+    <tr><td>Failed boots before a rescue</td><td data-label="default">3</td><td data-label="meaning">Boots in a row that did not finish. Lower reacts faster, higher forgives a random reboot.</td></tr>
+    <tr><td>Boot timeout</td><td data-label="default">180 s</td><td data-label="meaning">A boot slower than this counts as failed. Keep it well above your normal boot time.</td></tr>
+    <tr><td>Zygote restarts = loop</td><td data-label="default">4</td><td data-label="meaning">During boot, or soft reboots within 5 minutes after it.</td></tr>
+    <tr><td>Minutes until trusted</td><td data-label="default">10</td><td data-label="meaning">How long a new setup must run cleanly before it is trusted.</td></tr>
+    <tr><td>SystemUI monitor</td><td data-label="default">on</td><td data-label="meaning">Rescue when SystemUI crash loops or stays down.</td></tr>
+    <tr><td>Volume Up rescue</td><td data-label="default">on</td><td data-label="meaning">Vol+ × 3 during the boot animation.</td></tr>
+  </table></div>
   <p>They live in <code>/data/adb/bootloop-protector/config</code>.</p>
 </div>
 
 <div class="sec-title" id="card">status on the module card</div>
 <div class="box">
-  <table>
+  <div class="tw"><table>
     <tr><td>🛡️ Armed | … | Setup trusted 🟢</td><td>All good.</td></tr>
     <tr><td>Learning setup 🟡</td><td>Waiting for the setup to become trusted.</td></tr>
     <tr><td>⏳ Booting…</td><td>The boot is running (shows the attempt number).</td></tr>
     <tr><td>⚠️ Rescued …</td><td>A rescue switched things off. Tap Action to restore.</td></tr>
     <tr><td>❌ Gave up</td><td>The problem is not caused by modules. Check the log.</td></tr>
-  </table>
+  </table></div>
 </div>
 
 <div class="sec-title" id="log">log</div>
@@ -260,41 +298,28 @@
 <div class="box">
   <p>Everything is in one folder, <code>/data/adb/bootloop-protector</code>, and survives module updates.
   Uninstalling the module removes it.</p>
-  <table>
+  <div class="tw"><table>
     <tr><td>config</td><td>settings</td></tr>
     <tr><td>allowed-modules.txt</td><td>modules set to Never disable</td></tr>
     <tr><td>allowed-scripts.txt</td><td>scripts set to Never disable</td></tr>
     <tr><td>bp.log</td><td>log, rotated at 512 KB (bp.log.old)</td></tr>
     <tr><td>state/</td><td>boot counter, trusted setup, rescue records</td></tr>
-  </table>
+  </table></div>
 </div>
 
 <div class="sec-title" id="commands">commands</div>
 <div class="box">
   <p>Everything the WebUI does also works from a root terminal:</p>
-<pre><span class="cm"># status</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh status'
-
-<span class="cm"># modules with their badges</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh modules'
-
-<span class="cm"># bring back what the last rescue disabled</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh restore'
-
-<span class="cm"># trust the current setup right away</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh trust-now'
-
-<span class="cm"># never disable a module</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh allow-module MODULE_ID 1'
-
-<span class="cm"># change a setting</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh set-conf BOOT_TIMEOUT 120'
-
-<span class="cm"># read the log</span>
-su -c 'cat /data/adb/bootloop-protector/bp.log'
-
-<span class="cm"># save the log with a short report to Download</span>
-su -c 'sh /data/adb/modules/bootloop-protector/bp.sh save-log'</pre>
+<div class="code-block"><div class="code-header"><span class="code-label">Commands</span><div class="code-header-right"><div class="code-dots"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span></div></div></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub">status</span>'</pre><div class="cmd-note">status</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub">modules</span>'</pre><div class="cmd-note">modules with their badges</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub">restore</span>'</pre><div class="cmd-note">bring back what the last rescue disabled</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub"><span class="nw">trust-now</span></span>'</pre><div class="cmd-note">trust the current setup right away</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub"><span class="nw">allow-module</span> MODULE_ID 1</span>'</pre><div class="cmd-note">never disable a module</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub"><span class="nw">set-conf</span> BOOT_TIMEOUT 120</span>'</pre><div class="cmd-note">change a setting</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'cat /<wbr>data/<wbr>adb/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.log'</pre><div class="cmd-note">read the log</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+<div class="cmd-row"><div class="cmd-main"><pre>su <span class="nw">-c</span> 'sh /<wbr>data/<wbr>adb/<wbr>modules/<wbr><span class="nw">bootloop-protector</span>/<wbr>bp.sh <span class="sub"><span class="nw">save-log</span></span>'</pre><div class="cmd-note">save the log with a short report to Download</div></div><button class="copy-btn" type="button" onclick="copyCode(this)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY</button></div>
+</div>
   <p>Run <code>bp.sh</code> without arguments for the full list.</p>
 </div>
 
@@ -310,12 +335,71 @@ su -c 'sh /data/adb/modules/bootloop-protector/bp.sh save-log'</pre>
 
 <div class="footer">bootloop-protector</div>
 
+<button class="to-top" id="toTop" type="button" onclick="toTop()" aria-label="Back to top"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg></button>
 <script>
+  // Links inside the page (contents, "see section 9") scroll with JavaScript
+  // and leave the address alone. A changed address is a new history entry, and
+  // then the phone's Back would walk back through every section first instead
+  // of leaving the help page.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]');
+    if (!a || a.hasAttribute('data-ext')) return;
+    var id = a.getAttribute('href').slice(1);
+    if (!id) return;
+    var el = document.getElementById(id);
+    if (!el) return;
+    e.preventDefault();
+    var head = document.querySelector('.header');
+    var off = head ? head.getBoundingClientRect().height : 0;
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - off - 8), behavior: 'smooth' });
+  });
+
 // Go back in the history, so the phone's back arrow does not return to this page
 function goBack() {
   if (history.length > 1) history.back();
   else location.replace('index.html');
 }
+
+  // ── Copy a command (comments are not copied) ──
+  var ICON_COPY = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>COPY';
+  function codeText(pre) {
+    var c = pre.cloneNode(true);
+    c.querySelectorAll('.cm').forEach(function (n) { n.remove(); });
+    return c.textContent.replace(/\s+$/, '').replace(/^\s+/, '');
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed'; ta.style.top = '-1000px';
+    document.body.appendChild(ta); ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function copyCode(btn) {
+    var box = btn.closest('.cmd-row') || btn.closest('.code-block');
+    var text = codeText(box.querySelector('pre'));
+    function done(ok) {
+      btn.classList.add(ok ? 'copied' : 'failed');
+      btn.textContent = ok ? 'COPIED' : 'FAILED';
+      setTimeout(function () { btn.classList.remove('copied', 'failed'); btn.innerHTML = ICON_COPY; }, 1600);
+    }
+    // The WebView of some root managers has no navigator.clipboard, or rejects it.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(fallbackCopy(text)); });
+    } else {
+      done(fallbackCopy(text));
+    }
+  }
+  // ── Back to top ──
+  function toTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  (function () {
+    var b = document.getElementById('toTop');
+    function upd() { b.classList.toggle('show', (window.scrollY || document.documentElement.scrollTop) > 400); }
+    window.addEventListener('scroll', upd, { passive: true });
+    upd();
+  })();
 </script>
 </body>
 </html>

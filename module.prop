@@ -1,7 +1,7 @@
 id=bootloop-protector
 name=Bootloop Protector
-version=v1.3
-versionCode=4
+version=v1.5
+versionCode=6
 author=Tears Burn
 description=🛡️ Protects the phone from boot loops, soft reboot loops and SystemUI crashes caused by modules.
 updateJson=https://raw.githubusercontent.com/nikakvo/bootloop-protector/main/update.json

@@ -1,3 +1,12 @@
+## v1.5
+
+- Help: the Log section is in the contents now, so a tap takes you straight to it
+
+## v1.4
+
+- Help: one phone Back leaves the help page. Before, every tap in the contents added a step, and the page's own back arrow only went back to the top of the help page
+- Help: every command sits in a box with a COPY button, the tables read well on a phone, and a back-to-top arrow shows once you scroll down
+
 ## v1.3
 
 - Fixed an endless reboot loop: a SystemUI or soft reboot loop that starts after the boot and
