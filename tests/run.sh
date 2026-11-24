@@ -489,6 +489,19 @@ check "allow-module, list copy cannot be written: list unchanged" cmp -s "$R/lis
 check "allow-module, list copy cannot be written: no temp copy left" [ ! -e "$DATA/allowed-modules.txt.tmp" ]
 check "allow-module, list copy cannot be written: failure reported" sh -c 'grep -qx "Could not write allowed-modules.txt" "$1" && grep -qx "exit 1" "$1"' sh "$R/out"
 
+setup cli-list-unreadable
+printf 'example_keep\nexample_other\n' >> "$DATA/allowed-modules.txt"
+cp "$DATA/allowed-modules.txt" "$R/list.before"
+if [ "$(id -u)" = 0 ]; then
+  skip "allow-module, list cannot be read (root reads any file)"
+else
+  chmod 200 "$DATA/allowed-modules.txt"
+  run bp.sh allow-module example_other 0
+  chmod 644 "$DATA/allowed-modules.txt"
+  check "allow-module, list cannot be read: list unchanged" cmp -s "$R/list.before" "$DATA/allowed-modules.txt"
+  check "allow-module, list cannot be read: failure reported, no ok" sh -c 'grep -qx "Could not write allowed-modules.txt" "$1" && ! grep -qx ok "$1"' sh "$R/out"
+fi
+
 setup cli-conf-write-fails
 cp "$DATA/config" "$R/config.before"
 run_nofsz bp.sh set-conf BOOT_TIMEOUT 240

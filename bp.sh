@@ -20,10 +20,11 @@ list_set() {
   if [ "$3" = 1 ]; then
     list_clean "$1" | grep -Fxq -e "$2" || { end_line "$1"; printf '%s\n' "$2" >> "$1"; }
   else
-    while IFS= read -r l || [ -n "$l" ]; do
+    # the list is opened by this shell: a list that cannot be read fails here, before a temp copy exists
+    { while IFS= read -r l || [ -n "$l" ]; do
       c=$(printf '%s\n' "$l" | sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
       [ "$c" = "$2" ] || printf '%s\n' "$l"
-    done < "$1" | cat > "$1.tmp" || { rm -f "$1.tmp"; return 1; }
+    done | cat > "$1.tmp"; } < "$1" || { rm -f "$1.tmp"; return 1; }
     # the list is only overwritten when the temp copy was written (cat reports a failed write)
     cat "$1.tmp" > "$1"
     rm -f "$1.tmp"
