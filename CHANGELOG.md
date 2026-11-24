@@ -8,6 +8,8 @@
   now report it and keep the allow list, the config and the trusted setup as they were;
   before, an allow list or the trusted setup could be emptied and the change shown as done
 - The log says "Setup trusted" only when the trusted setup was really recorded
+- A rescue counts what it switched off also when the log cannot be written; before, it
+  counted nothing and gave up instead of rebooting
 
 ## v1.4
 
