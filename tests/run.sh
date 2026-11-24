@@ -282,6 +282,22 @@ check "service: setup trusted after TRUST_MINUTES" has "$DATA/bp.log" "Setup tru
 check "service: trusted setup holds the module" has "$DATA/state/baseline" "module:example_mod "
 check "service: no reboot" not rebooted
 
+setup svc-no-candidate
+add_mod example_mod
+conf TRUST_MINUTES 1
+echo 1 > "$R/boot_completed"
+# the snapshot of this boot is gone before the trust point (trust-now removes it)
+cat > "$R/pidof" <<'EOF'
+#!/bin/sh
+rm -f "$STUB_R/data/adb/bootloop-protector/state/candidate"
+exit 1
+EOF
+chmod 755 "$R/pidof"
+STUB_TICK=10 STUB_SHUTDOWN_AFTER=30 run service.sh
+check "service: no snapshot of this boot at the trust point: no trusted setup" [ ! -e "$DATA/state/baseline" ]
+check "service: no snapshot of this boot at the trust point: trust not logged" not has "$DATA/bp.log" "Setup trusted after"
+check "service: no snapshot of this boot at the trust point: good boot still logged" has "$DATA/bp.log" "Good boot"
+
 setup svc-sysui-after-rescue
 add_mod example_mod
 touch "$ADB/modules/example_mod/disable"

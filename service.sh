@@ -156,7 +156,7 @@ while :; do
       rm -f "$BP_STATE/candidate"
       bp_log "Not trusting this setup - a rescue is waiting for Restore"
     else
-      mv -f "$BP_STATE/candidate" "$BP_STATE/baseline"
+      mv -f "$BP_STATE/candidate" "$BP_STATE/baseline" &&
       bp_log "Setup trusted after $trust_min min without problems"
     fi
     trusted=1
