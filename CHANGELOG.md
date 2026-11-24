@@ -2,6 +2,13 @@
 
 - Help: the Log section is in the contents now, so a tap takes you straight to it
 
+### Fork fixes
+
+- When a file cannot be written (a full /data), Never disable, set-conf and trust-now
+  now report it and keep the allow list, the config and the trusted setup as they were;
+  before, an allow list or the trusted setup could be emptied and the change shown as done
+- The log says "Setup trusted" only when the trusted setup was really recorded
+
 ## v1.4
 
 - Help: one phone Back leaves the help page. Before, every tap in the contents added a step, and the page's own back arrow only went back to the top of the help page
