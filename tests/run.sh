@@ -223,6 +223,19 @@ check "log not writable: rescue still disables the module and the script" sh -c 
 check "log not writable: rescue counts what it disabled" hasx "$DATA/state/last-rescue" "count=2"
 check "log not writable: reboots instead of giving up" sh -c '[ ! -e "$1" ] && grep -q "setprop sys.powerctl reboot" "$2"' sh "$DATA/state/gaveup" "$R/calls"
 
+setup pfd-disable-fails
+add_mod example_mod
+echo 3 > "$DATA/state/attempts"
+if [ "$(id -u)" = 0 ]; then
+  skip "rescue, module folder not writable (root writes any folder)"
+else
+  chmod 555 "$ADB/modules/example_mod"
+  run post-fs-data.sh
+  chmod 755 "$ADB/modules/example_mod"
+  check "rescue, module cannot be switched off: not counted" hasx "$DATA/state/last-rescue" "count=0"
+  check "rescue, module cannot be switched off: no reboot" not rebooted
+fi
+
 setup pfd-dash-name
 add_script -x.sh
 printf '%s\n' -x.sh >> "$DATA/allowed-scripts.txt"
