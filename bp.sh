@@ -186,7 +186,7 @@ case "$1" in
     esac
     case "$3" in ''|*[!0-9]*|0?*) echo "Bad value"; exit 1 ;; esac
     if [ "${#3}" -gt 9 ] || [ "$3" -lt "$lo" ] || [ "$3" -gt "$hi" ]; then echo "Out of range"; exit 1; fi
-    conf_set "$2" "$3"
+    conf_set "$2" "$3" || { echo "Could not write config"; exit 1; }
     bp_log "Setting $2=$3"
     refresh_desc
     echo "ok"

@@ -463,6 +463,17 @@ check "allow-module, list copy cannot be written: list unchanged" cmp -s "$R/lis
 check "allow-module, list copy cannot be written: no temp copy left" [ ! -e "$DATA/allowed-modules.txt.tmp" ]
 check "allow-module, list copy cannot be written: failure reported" sh -c 'grep -qx "Could not write allowed-modules.txt" "$1" && grep -qx "exit 1" "$1"' sh "$R/out"
 
+setup cli-conf-write-fails
+cp "$DATA/config" "$R/config.before"
+run_nofsz bp.sh set-conf BOOT_TIMEOUT 240
+check "set-conf, config cannot be written: config unchanged" cmp -s "$R/config.before" "$DATA/config"
+check "set-conf, config cannot be written: failure reported, no ok" sh -c 'grep -qx "Could not write config" "$1" && grep -qx "exit 1" "$1" && ! grep -qx ok "$1"' sh "$R/out"
+grep -v '^MAX_ATTEMPTS=' "$DATA/config" > "$R/config.before"
+cp "$R/config.before" "$DATA/config"
+run_nofsz bp.sh set-conf MAX_ATTEMPTS 5
+check "set-conf, new setting cannot be appended: config unchanged" cmp -s "$R/config.before" "$DATA/config"
+check "set-conf, new setting cannot be appended: failure reported, no ok" sh -c 'grep -qx "Could not write config" "$1" && grep -qx "exit 1" "$1" && ! grep -qx ok "$1"' sh "$R/out"
+
 setup cli-enable-all
 add_mod example_a
 add_mod example_b
