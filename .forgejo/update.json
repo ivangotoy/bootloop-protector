@@ -1,6 +1,6 @@
 {
-  "version": "v1.3-ci6",
-  "versionCode": 7,
-  "zipUrl": "https://git.digtvbg.com/ivangotoy/bootloop-protector/releases/download/v1.3-ci6/bootloop-protector-v1.3-ci6.zip",
-  "changelog": "https://git.digtvbg.com/ivangotoy/bootloop-protector/raw/commit/135d6bc1679a1dbb691cbb87079d36dd607f7fa1/CHANGELOG.md"
+  "version": "v1.5-ci7",
+  "versionCode": 9,
+  "zipUrl": "https://git.digtvbg.com/ivangotoy/bootloop-protector/releases/download/v1.5-ci7/bootloop-protector-v1.5-ci7.zip",
+  "changelog": "https://git.digtvbg.com/ivangotoy/bootloop-protector/raw/commit/f6bf43f8532519606b9e68b1db8101f99853af7b/CHANGELOG.md"
 }
