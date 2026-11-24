@@ -83,9 +83,22 @@ scenario() {
     "$REAL_GIT" init -q --bare "$S/origin.git"
     "$REAL_GIT" init -q --bare "$S/upstream.git"
     "$REAL_GIT" push -q "$S/origin.git" main:refs/heads/main
-    "$REAL_GIT" push -q "$S/upstream.git" up:refs/heads/main
+    # NO_MERGE=1: upstream has nothing new (its main is the fork's base), the build merges nothing
+    if [ -n "${NO_MERGE:-}" ]; then "$REAL_GIT" push -q "$S/upstream.git" main:refs/heads/main
+    else "$REAL_GIT" push -q "$S/upstream.git" up:refs/heads/main; fi
   ) || { bad "$1: fixture repos"; return 1; }
   BASE=$("$REAL_GIT" -C "$S/seed" rev-parse main)
+  # MAIN_MOVED_JSON: main moves on after the dispatch, with this update.json (another run's release)
+  if [ -n "${MAIN_MOVED_JSON:-}" ]; then
+    (
+      set -e
+      cd "$S/seed"
+      printf '%s\n' "$MAIN_MOVED_JSON" > .forgejo/update.json
+      "$REAL_GIT" add .forgejo/update.json && "$REAL_GIT" commit -q -m "example update.json of another run"
+      "$REAL_GIT" push -q "$S/origin.git" main:refs/heads/main
+    ) || { bad "$1: moved main"; return 1; }
+    MOVED=$("$REAL_GIT" -C "$S/seed" rev-parse main)
+  fi
   # OFF_MAIN=1: dispatch a commit that is in the clone (branch side) but not on main
   RUN_BASE=$BASE
   if [ -n "${OFF_MAIN:-}" ]; then
@@ -104,9 +117,10 @@ scenario() {
     "$REAL_GIT" checkout -q -B main "$BASE"
     "$REAL_GIT" fetch -q https://github.com/nikakvo/bootloop-protector.git main
     up=$("$REAL_GIT" rev-parse FETCH_HEAD)
-    "$REAL_GIT" merge -q --no-ff --no-edit -m "Merge nikakvo/bootloop-protector main ${up:0:12}" "$up"
+    "$REAL_GIT" merge-base --is-ancestor "$up" HEAD ||
+      "$REAL_GIT" merge -q --no-ff --no-edit -m "Merge nikakvo/bootloop-protector main ${up:0:12}" "$up"
     mkdir .ci-out
-    "$REAL_GIT" bundle create -q .ci-out/merge.bundle "$BASE..main"
+    [ "$("$REAL_GIT" rev-parse HEAD)" = "$BASE" ] || "$REAL_GIT" bundle create -q .ci-out/merge.bundle "$BASE..main"
     printf '%s\n%s\n' "$("$REAL_GIT" rev-parse HEAD)" "$up" > .ci-out/src
     printf 'nikakvo/bootloop-protector@main %s\n' "${up:0:12}" > .ci-out/desc
     WORK="$S/src" OUT="$S/src/.ci-out"
@@ -209,6 +223,9 @@ check "release: published asset carries the forge updateJson" bash -c '[ "$(sed 
 # the fork releases above the upstream build and its own earlier releases (VERSION_CODE_OFFSET=3)
 check "release: zip versionCode is module.prop's + 3 ($((BUILT_VC + 3)))" bash -c '[ "$(sed -n "s/^versionCode=//p" <<<"$1")" = "$2" ]' _ "$(zip_prop "$S/asset.zip")" "$((BUILT_VC + 3))"
 check "release: update.json versionCode is module.prop's + 3 ($((BUILT_VC + 3)))" [ "$(origin_show .forgejo/update.json | json_get versionCode)" = "$((BUILT_VC + 3))" ]
+check "release: zip holds no tests/ and no .forgejo/" python3 -I -c 'import sys, zipfile
+n = zipfile.ZipFile(sys.argv[1]).namelist()
+sys.exit(not n or any(x.startswith(("tests/", ".forgejo/")) for x in n))' "$S/asset.zip"
 check "release: root module.prop untouched without SYNC_ROOT_PROP" bash -c '[ "$1" = "$2" ]' _ "$(origin_show module.prop)" "$(cat "$REPO/module.prop")"
 
 check "release: token in no curl or git argv" no_token_in_argv
@@ -405,5 +422,20 @@ scenario lastbad "" "" ""
 LAST_JSON=""
 check "last release with a non-number versionCode: refused" [ "$RC" != 0 ]
 check "last release with a non-number versionCode: nothing published" not_published
+
+# a second run dispatched at the same commit after the first one released: main has moved on
+# with the first run's update.json, upstream has nothing new (no merge to push)
+MOVED_VC=$((BUILT_VC + 5))
+NO_MERGE=1 MAIN_MOVED_JSON="{\"version\": \"v0-ci1\", \"versionCode\": $MOVED_VC}" scenario moved-nomerge "" "" ""
+check "same commit released again, main moved: exits 0" [ "$RC" = 0 ]
+check "same commit released again, main moved: nothing merged or pushed but update.json" bash -c '[ "$1" = "$2" ] && [ "$(grep -cx push "$3")" = 1 ]' _ "$SRC" "$BASE" "$S/log/git-env-auth"
+check "same commit released again, main moved: published at the dispatched commit" grep -qx "PATCH $A/releases/1 auth" "$S/calls"
+check "same commit released again, main moved: update.json committed on the moved main" [ "$("$REAL_GIT" --git-dir "$S/origin.git" rev-parse main^ 2>/dev/null)" = "$MOVED" ]
+check "same commit released again, main moved: zip versionCode above main's update.json ($((MOVED_VC + 1)))" bash -c '[ "$(sed -n "s/^versionCode=//p" <<<"$1")" = "$2" ]' _ "$(zip_prop "$S/asset.zip")" "$((MOVED_VC + 1))"
+check "same commit released again, main moved: update.json versionCode above the earlier one" [ "$(origin_show .forgejo/update.json | json_get versionCode)" = "$((MOVED_VC + 1))" ]
+# with a merge to push, a moved main stops the release before anything is published
+MAIN_MOVED_JSON="{\"version\": \"v0-ci1\", \"versionCode\": $MOVED_VC}" scenario moved-merge "" "" ""
+check "merge to push, main moved: refused" bash -c '[ "$1" != 0 ] && grep -q "push of the merge failed" "$2"' _ "$RC" "$S/out"
+check "merge to push, main moved: nothing published, draft deleted" bash -c '! grep -q "^PATCH " "$1" && grep -qx "DELETE $2/releases/1 auth" "$1"' _ "$S/calls" "$A"
 
 exit 0

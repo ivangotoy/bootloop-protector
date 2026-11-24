@@ -185,14 +185,15 @@ BUILT_VC="$(prop_get versionCode "$REL/built.prop")"
 case "$BUILT_VC" in ''|*[!0-9]*) die "built versionCode '$BUILT_VC' is not a number" ;; esac
 VERSION="$(printf '%s' "$BUILT_VERSION" | sed -E 's/-(fork|ci)[0-9]+$//')-ci$RUN_NUMBER"
 VC=$((BUILT_VC + VERSION_CODE_OFFSET))
-# never at or below the fork's last published release (update.json at the dispatched commit),
-# so a new release is offered as an update without raising the offset by hand
+# never at or below the fork's last published release (update.json on main as cloned above,
+# which holds the dispatched commit: a run dispatched at the same commit may have released
+# since), so a new release is offered as an update without raising the offset by hand
 LAST_VC=0
-if git cat-file -e "$BASE_SHA:$UPDATE_JSON_PATH" 2>/dev/null; then
-    LAST_VC="$(git show "$BASE_SHA:$UPDATE_JSON_PATH" | python3 -I -c 'import json, sys
+if git cat-file -e "HEAD:$UPDATE_JSON_PATH" 2>/dev/null; then
+    LAST_VC="$(git show "HEAD:$UPDATE_JSON_PATH" | python3 -I -c 'import json, sys
 v = json.load(sys.stdin).get("versionCode")
-print(v if type(v) is int and v >= 0 else "")')" || die "$UPDATE_JSON_PATH at $BASE_SHA is not valid JSON"
-    case "$LAST_VC" in ''|*[!0-9]*) die "versionCode in $UPDATE_JSON_PATH at $BASE_SHA is not a number" ;; esac
+print(v if type(v) is int and v >= 0 else "")')" || die "$UPDATE_JSON_PATH on main is not valid JSON"
+    case "$LAST_VC" in ''|*[!0-9]*) die "versionCode in $UPDATE_JSON_PATH on main is not a number" ;; esac
 fi
 [ "$VC" -gt "$LAST_VC" ] || VC=$((LAST_VC + 1))
 [ "$VC" -ge "$VERSION_CODE_FLOOR" ] || die "versionCode $VC is below the floor $VERSION_CODE_FLOOR"
