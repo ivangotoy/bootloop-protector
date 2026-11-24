@@ -89,6 +89,13 @@ EOF
 # any pid_max: nothing real can be signalled
 printf '#!/bin/sh\n[ -x "$STUB_R/pidof" ] && exec "$STUB_R/pidof" "$@"\nexit 1\n' > "$W/bin/pidof"
 printf '#!/bin/sh\nexit 1\n' > "$W/bin/pgrep"
+# chmod fails while a test keeps $STUB_R/chmod.fail (a script that cannot be switched off)
+REAL_CHMOD=$(command -v chmod)
+cat > "$W/bin/chmod" <<EOF
+#!/bin/sh
+[ -f "\$STUB_R/chmod.fail" ] && exit 1
+exec "$REAL_CHMOD" "\$@"
+EOF
 printf '#!/bin/sh\nexit 0\n' > "$W/bin/sleep"
 cat > "$W/bin/sync" <<'EOF'
 #!/bin/sh
@@ -235,6 +242,16 @@ else
   check "rescue, module cannot be switched off: not counted" hasx "$DATA/state/last-rescue" "count=0"
   check "rescue, module cannot be switched off: no reboot" not rebooted
 fi
+
+setup pfd-chmod-fails
+add_script example.sh
+echo 3 > "$DATA/state/attempts"
+touch "$R/chmod.fail"
+run post-fs-data.sh
+rm -f "$R/chmod.fail"
+check "rescue, script cannot be switched off: still executable" executable example.sh
+check "rescue, script cannot be switched off: not counted" hasx "$DATA/state/last-rescue" "count=0"
+check "rescue, script cannot be switched off: no reboot" not rebooted
 
 setup pfd-dash-name
 add_script -x.sh
