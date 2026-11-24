@@ -192,16 +192,19 @@ disable_module() {
   # Record first, then disable: if the rescue is cut off in between, Restore
   # still knows about it (Restore skips items that are not really disabled)
   echo "module:$1" >> "$BP_STATE/rescue.list"
-  touch "$m/disable"
+  touch "$m/disable" || return 1
   bp_log "  disabled module $1"
+  # counted by whether it was switched off, not by whether the log line was written
+  return 0
 }
 
 disable_script() {
   [ -f "$1" ] && [ -x "$1" ] || return 1
   if script_allowed "$1"; then bp_log "  keep script $1 (allowed)"; return 1; fi
   echo "script:$1" >> "$BP_STATE/rescue.list"
-  chmod 644 "$1"
+  chmod 644 "$1" || return 1
   bp_log "  disabled script $1"
+  return 0
 }
 
 # Id of the active KernelSU/SukiSU metamodule (empty when there is none)

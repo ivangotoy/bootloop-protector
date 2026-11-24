@@ -213,6 +213,16 @@ check "level 2: rescue list records the script" hasx "$DATA/state/rescue.list" "
 check "level 2: attempts reset" [ "$(state attempts)" = 0 ]
 check "level 2: reboots" rebooted
 
+setup pfd-log-unwritable
+add_mod example_mod
+add_script example.sh
+mkdir "$DATA/bp.log"
+echo 3 > "$DATA/state/attempts"
+run post-fs-data.sh
+check "log not writable: rescue still disables the module and the script" sh -c '[ -f "$1/modules/example_mod/disable" ] && [ ! -x "$1/service.d/example.sh" ]' sh "$ADB"
+check "log not writable: rescue counts what it disabled" hasx "$DATA/state/last-rescue" "count=2"
+check "log not writable: reboots instead of giving up" sh -c '[ ! -e "$1" ] && grep -q "setprop sys.powerctl reboot" "$2"' sh "$DATA/state/gaveup" "$R/calls"
+
 setup pfd-dash-name
 add_script -x.sh
 printf '%s\n' -x.sh >> "$DATA/allowed-scripts.txt"
