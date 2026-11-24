@@ -474,6 +474,16 @@ run_nofsz bp.sh set-conf MAX_ATTEMPTS 5
 check "set-conf, new setting cannot be appended: config unchanged" cmp -s "$R/config.before" "$DATA/config"
 check "set-conf, new setting cannot be appended: failure reported, no ok" sh -c 'grep -qx "Could not write config" "$1" && grep -qx "exit 1" "$1" && ! grep -qx ok "$1"' sh "$R/out"
 
+setup cli-trust-write-fails
+add_mod example_a
+run bp.sh trust-now
+cp "$DATA/state/baseline" "$R/baseline.before"
+add_mod example_new
+run_nofsz bp.sh trust-now
+check "trust-now, snapshot cannot be written: trusted setup unchanged" cmp -s "$R/baseline.before" "$DATA/state/baseline"
+check "trust-now, snapshot cannot be written: no temp copy left" [ ! -e "$DATA/state/baseline.tmp" ]
+check "trust-now, snapshot cannot be written: failure reported" sh -c 'grep -qx "Could not write the trusted setup" "$1" && grep -qx "exit 1" "$1" && ! grep -q "now trusted" "$1"' sh "$R/out"
+
 setup cli-enable-all
 add_mod example_a
 add_mod example_b

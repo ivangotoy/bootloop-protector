@@ -165,18 +165,20 @@ list_scripts() {
 # take_snapshot FILE - enabled modules and executable scripts with fingerprints
 take_snapshot() {
   tmp="$1.tmp"
-  : > "$tmp"
+  # written through cat, whose status reports a failed write: the old file then stays
+  {
   for m in "$MODULES_DIR"/*/; do
     m="${m%/}"
     [ -d "$m" ] || continue
     id="${m##*/}"
     [ "$id" = "$BP_ID" ] && continue
     [ -f "$m/disable" ] || [ -f "$m/remove" ] && continue
-    echo "module:$id $(mod_fp "$m")" >> "$tmp"
+    echo "module:$id $(mod_fp "$m")"
   done
   list_scripts | while IFS= read -r s; do
-    echo "script:$s $(cksum < "$s" | cut -d' ' -f1)" >> "$tmp"
+    echo "script:$s $(cksum < "$s" | cut -d' ' -f1)"
   done
+  } | cat > "$tmp" || { rm -f "$tmp"; return 1; }
   mv -f "$tmp" "$1"
 }
 

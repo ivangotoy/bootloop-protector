@@ -230,7 +230,7 @@ case "$1" in
     ;;
 
   trust-now)
-    take_snapshot "$BP_STATE/baseline"
+    take_snapshot "$BP_STATE/baseline" || { echo "Could not write the trusted setup"; exit 1; }
     rm -f "$BP_STATE/candidate"
     bp_log "Current setup marked as trusted by hand"
     refresh_desc
