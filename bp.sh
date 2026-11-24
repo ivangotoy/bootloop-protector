@@ -23,9 +23,8 @@ list_set() {
     while IFS= read -r l || [ -n "$l" ]; do
       c=$(printf '%s\n' "$l" | sed -e 's/\r$//' -e 's/#.*//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
       [ "$c" = "$2" ] || printf '%s\n' "$l"
-    done < "$1" > "$1.tmp"
-    # the list is only overwritten when the temp copy was written
-    [ -f "$1.tmp" ] || return 1
+    done < "$1" | cat > "$1.tmp" || { rm -f "$1.tmp"; return 1; }
+    # the list is only overwritten when the temp copy was written (cat reports a failed write)
     cat "$1.tmp" > "$1"
     rm -f "$1.tmp"
   fi

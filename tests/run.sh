@@ -139,6 +139,16 @@ run() {
   (cd "$R" && PATH="$W/bin:$PATH" BP_ROOT="$R" STUB_R="$R" timeout 120 $SH "$REPO/$_s" "$@") > "$R/out" 2>&1
 }
 
+# run_nofsz SCRIPT [ARGS] - like run, but every file write of the script fails (a full /data):
+# file size limit 0 with SIGXFSZ ignored. Output and exit status come back through a pipe,
+# which the limit does not cover; $R/out ends with "exit N"
+run_nofsz() {
+  _s=$1
+  shift
+  (cd "$R" && PATH="$W/bin:$PATH" BP_ROOT="$R" STUB_R="$R" \
+    sh -c 'trap "" XFSZ; ulimit -f 0; "$@"; echo "exit $?"' sh timeout 120 $SH "$REPO/$_s" "$@") 2>&1 | cat > "$R/out"
+}
+
 rebooted() { has "$R/calls" "setprop sys.powerctl reboot"; }
 disabled() { [ -f "$ADB/modules/$1/disable" ]; }
 executable() { [ -x "$ADB/service.d/$1" ]; }
@@ -444,6 +454,14 @@ mkdir "$DATA/allowed-modules.txt.tmp"
 run bp.sh allow-module example_other 0
 check "allow-module: temp copy not writable keeps the list" hasx "$DATA/allowed-modules.txt" "example_keep"
 check "allow-module: temp copy not writable is reported" not hasx "$R/out" "ok"
+
+setup cli-list-write-fails
+printf 'example_keep\nexample_other\n' >> "$DATA/allowed-modules.txt"
+cp "$DATA/allowed-modules.txt" "$R/list.before"
+run_nofsz bp.sh allow-module example_other 0
+check "allow-module, list copy cannot be written: list unchanged" cmp -s "$R/list.before" "$DATA/allowed-modules.txt"
+check "allow-module, list copy cannot be written: no temp copy left" [ ! -e "$DATA/allowed-modules.txt.tmp" ]
+check "allow-module, list copy cannot be written: failure reported" sh -c 'grep -qx "Could not write allowed-modules.txt" "$1" && grep -qx "exit 1" "$1"' sh "$R/out"
 
 setup cli-enable-all
 add_mod example_a
